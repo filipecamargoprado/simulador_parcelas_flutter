@@ -5,6 +5,7 @@ import 'historico_screen.dart';
 import 'login_screen.dart';
 import 'perfil_screen.dart';
 import 'simulacao_screen.dart';
+import '../utils/theme.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isAdmin;
@@ -22,17 +23,26 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget get telaAtual {
     switch (_index) {
       case 0:
-        return SimulacaoScreen(usuario: widget.usuario);
+        return SimulacaoScreen(
+          usuario: widget.usuario,
+          isAdmin: widget.isAdmin,
+        );
       case 1:
-        return const CadastroProdutoScreen();
+        return CadastroProdutoScreen(
+          usuario: widget.usuario,
+          isAdmin: widget.isAdmin,
+        );
       case 2:
-        return const CadastroUsuarioScreen();
+        return CadastroUsuarioScreen(
+          usuario: widget.usuario,
+          isAdmin: widget.isAdmin,
+        );
       case 3:
         return PerfilScreen(usuario: widget.usuario);
       case 4:
         return HistoricoScreen(
+          usuario: widget.usuario,
           isAdmin: widget.isAdmin,
-          usuarioLogado: widget.usuario['nome'] ?? widget.usuario['email'],
         );
       default:
         return const SizedBox();
@@ -50,62 +60,62 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Simulador Parcelas Jufap', style: TextStyle(color: Colors.white)),
+        title: const Text('Simulador Parcelas Jufap'),
         iconTheme: const IconThemeData(color: Colors.white),
-        backgroundColor: const Color(0xFF005BA1),
       ),
       drawer: Drawer(
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            Container(
-              color: Colors.blue,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+              ),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => navigateTo(widget.isAdmin ? 3 : 1),
-                        child: const CircleAvatar(
-                          radius: 30,
-                          backgroundImage: AssetImage('assets/images/logo_jufap.jpeg'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () => navigateTo(widget.isAdmin ? 3 : 1),
-                        child: Text(
-                          'Perfil do Usuário',
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ),
-                    ],
+                  const CircleAvatar(
+                    radius: 30,
+                    backgroundImage: AssetImage('assets/images/logo_jufap.jpeg'),
                   ),
-                  const SizedBox(height: 16),
-                  const Text('MENU', style: TextStyle(color: Colors.white, fontSize: 12)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.usuario['nome'] ?? 'Usuário',
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.calculate),
               title: const Text('Simulação de Parcelas'),
               onTap: () => navigateTo(0),
             ),
             if (widget.isAdmin)
               ListTile(
+                leading: const Icon(Icons.shopping_cart),
                 title: const Text('Cadastro de Produto'),
                 onTap: () => navigateTo(1),
               ),
             if (widget.isAdmin)
               ListTile(
+                leading: const Icon(Icons.person_add),
                 title: const Text('Cadastro de Usuário'),
                 onTap: () => navigateTo(2),
               ),
             ListTile(
+              leading: const Icon(Icons.history),
               title: const Text('Histórico de Simulações'),
               onTap: () => navigateTo(4),
             ),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Perfil'),
+              onTap: () => navigateTo(3),
+            ),
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Sair'),

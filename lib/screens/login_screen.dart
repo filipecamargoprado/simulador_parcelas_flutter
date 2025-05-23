@@ -1,6 +1,7 @@
 import 'home_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -90,13 +91,8 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF005BA1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
                 onPressed: carregando ? null : fazerLogin,
+                style: AppButtonStyle.primaryButton,
                 child: carregando
                     ? const SizedBox(
                   width: 20,

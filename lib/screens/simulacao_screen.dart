@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import 'dart:math';
+import '../utils/theme.dart';
+import '../components/app_scaffold.dart';
 
 class SimulacaoScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
-  const SimulacaoScreen({super.key, required this.usuario});
+  final bool isAdmin;
+  const SimulacaoScreen({super.key, required this.usuario, required this.isAdmin});
 
   @override
   State<SimulacaoScreen> createState() => _SimulacaoScreenState();
@@ -68,17 +71,15 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     final juros = double.tryParse(jurosController.text) ?? 0;
     final entradaPercentual = double.tryParse(entradaPercentualController.text) ?? 0;
 
-    if (tipoParcelamento == 'Quinzenal') {
-      parcelasController.text = (parcelas * 2).toString();
-    }
+    final parcelasReal = tipoParcelamento == 'Quinzenal' ? parcelas * 2 : parcelas;
 
     if (margem < 35 || juros < 19 || entradaPercentual < 20 || parcelas > 12) {
       final List<String> avisos = [];
 
-      if (margem < 35) avisos.add('⚠️ Margem deve ser maior ou igual a 35%');
-      if (juros < 19) avisos.add('⚠️ Juros devem ser maior ou igual a 19%');
-      if (entradaPercentual < 20) avisos.add('⚠️ Entrada deve ser maior ou igual a 20%');
-      if (parcelas > 12) avisos.add('⚠️ Parcelas devem ser menor ou igual a 12');
+      if (margem < 35) avisos.add('⚠️ Margem deve ser >= 35%');
+      if (juros < 19) avisos.add('⚠️ Juros deve ser >= 19%');
+      if (entradaPercentual < 20) avisos.add('⚠️ Entrada >= 20%');
+      if (parcelas > 12) avisos.add('⚠️ Parcelas <= 12');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -93,17 +94,19 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
       return;
     }
 
-    final custoPorBoletoTotal = custoPorBoleto * parcelas;
+    final custoPorBoletoTotal = custoPorBoleto * parcelasReal;
     final cmvTotal = cmv + campanha + custoSaque + licencaAnual + custoPorBoletoTotal + mensalidade;
     precoSugerido = cmvTotal / (1 - margem / 100);
 
-    double precoVenda = double.tryParse(precoVendaController.text.replaceAll('.', '').replaceAll(',', '.')) ?? precoSugerido!;
+    double precoVenda = double.tryParse(
+        precoVendaController.text.replaceAll('.', '').replaceAll(',', '.')
+    ) ?? precoSugerido!;
 
     if (precoVenda < precoSugerido!) {
       precoVenda = precoSugerido!;
       precoVendaController.text = precoVenda.toStringAsFixed(2);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ O preço de venda final deve ser maior ou igual ao preço sugerido.')),
+        const SnackBar(content: Text('⚠️ Preço final deve ser >= preço sugerido.')),
       );
     }
 
@@ -115,8 +118,8 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
       return (pv * i) / (1 - pow(1 + i, -n));
     }
 
-    final valorParcela = calcularParcela(i, parcelas, restante);
-    final total = valorParcela * parcelas;
+    final valorParcela = calcularParcela(i, parcelasReal, restante);
+    final total = valorParcela * parcelasReal;
     final lucro = precoVenda - cmvTotal;
     final parcelasParaCobrirCusto = (cmvTotal / valorParcela).ceil();
 
@@ -127,28 +130,28 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.grey.shade200,
+            color: Colors.grey.shade100,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('💡 Preço de Venda Sugerido: ${formatarReal(precoSugerido!)}',
+              Text('💡 Preço Sugerido: ${formatarReal(precoSugerido!)}',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              const Text('Preço de Venda Final'),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: precoVendaController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(),
+                      decoration: const InputDecoration(labelText: 'Preço Venda Final'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: simular,
+                    style: AppButtonStyle.primaryButton,
                     child: const Text('Atualizar'),
                   )
                 ],
@@ -160,9 +163,9 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
               Text('Entrada (${entradaPercentual.toStringAsFixed(0)}%): ${formatarReal(entrada)}'),
               Text('Financiado: ${formatarReal(restante)}'),
               const SizedBox(height: 10),
-              Text('📊 Parcelas com Juros (${parcelas}x): ${formatarReal(valorParcela)}'),
-              Text('🔢 Total a pagar: ${formatarReal(total)}'),
-              Text('📈 Parcelas para cobrir o custo: $parcelasParaCobrirCusto'),
+              Text('📊 ${parcelasReal}x de ${formatarReal(valorParcela)}'),
+              Text('🔢 Total: ${formatarReal(total)}'),
+              Text('📈 Parcelas p/ Cobrir Custo: $parcelasParaCobrirCusto'),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: () async {
@@ -184,18 +187,17 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                     };
 
                     await ApiService.salvarSimulacao(dados);
-
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('✅ Simulação salva com sucesso!')),
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('❌ Erro ao salvar simulação: $e')),
+                      SnackBar(content: Text('❌ Erro ao salvar: $e')),
                     );
                   }
                 },
                 icon: const Icon(Icons.save),
-                label: const Text('Salvar simulação venda'),
+                label: const Text('Salvar Simulação'),
               ),
             ],
           ),
@@ -205,131 +207,109 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
   }
 
   @override
-  void dispose() {
-    margemController.dispose();
-    jurosController.dispose();
-    parcelasController.dispose();
-    precoVendaController.dispose();
-    entradaPercentualController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args != null && args is Map && produtoSelecionado == null) {
-      precoVendaController.text = args['preco_venda_final']?.toString() ?? '';
-      parcelasController.text = args['parcelas']?.toString() ?? '12';
-      jurosController.text = args['juros']?.toString() ?? '19';
-      entradaPercentualController.text = args['entrada']?.toString() ?? '20';
-      formaPagamento = args['forma_pagamento'] ?? 'Pix';
-      tipoParcelamento = args['tipo_parcelamento'] ?? 'Mensal';
-
-      final nomeProduto = args['produto']?.toString();
-      if (nomeProduto != null && produtos.isNotEmpty) {
-        final encontrado = produtos.firstWhere(
-              (p) => '${p['marca']} - ${p['modelo']}' == nomeProduto,
-          orElse: () => {},
-        );
-        if (encontrado.isNotEmpty) {
-          produtoSelecionado = encontrado;
-        }
-      }
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Simulação de Parcelas', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: margemController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Margem (%)'),
+    return AppScaffold(
+      title: 'Simulação de Parcelas',
+      isAdmin: widget.isAdmin,
+      usuario: widget.usuario,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Simulação de Parcelas', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: margemController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Margem (%)'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: jurosController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Juros (%)'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: jurosController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Juros (%)'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: entradaPercentualController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Entrada (%)'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: entradaPercentualController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Entrada (%)'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: parcelasController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Parcelas'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: parcelasController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Parcelas'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: formaPagamento,
-                  decoration: const InputDecoration(labelText: 'Forma de Pagamento da Entrada'),
-                  items: const [
-                    DropdownMenuItem(value: 'Pix', child: Text('Pix')),
-                    DropdownMenuItem(value: 'Dinheiro', child: Text('Dinheiro')),
-                  ],
-                  onChanged: (value) {
-                    setState(() => formaPagamento = value!);
-                  },
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: formaPagamento,
+                    decoration: const InputDecoration(labelText: 'Forma de Pagamento'),
+                    items: const [
+                      DropdownMenuItem(value: 'Pix', child: Text('Pix')),
+                      DropdownMenuItem(value: 'Dinheiro', child: Text('Dinheiro')),
+                    ],
+                    onChanged: (value) {
+                      setState(() => formaPagamento = value!);
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: tipoParcelamento,
-                  decoration: const InputDecoration(labelText: 'Tipo de Parcelamento'),
-                  items: const [
-                    DropdownMenuItem(value: 'Mensal', child: Text('Mensal')),
-                    DropdownMenuItem(value: 'Quinzenal', child: Text('Quinzenal')),
-                  ],
-                  onChanged: (value) {
-                    setState(() => tipoParcelamento = value!);
-                  },
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: tipoParcelamento,
+                    decoration: const InputDecoration(labelText: 'Tipo de Parcelamento'),
+                    items: const [
+                      DropdownMenuItem(value: 'Mensal', child: Text('Mensal')),
+                      DropdownMenuItem(value: 'Quinzenal', child: Text('Quinzenal')),
+                    ],
+                    onChanged: (value) {
+                      setState(() => tipoParcelamento = value!);
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<Map<String, dynamic>>(
-            value: produtoSelecionado,
-            decoration: const InputDecoration(labelText: 'Selecione o Produto'),
-            items: produtos.map((produto) {
-              return DropdownMenuItem<Map<String, dynamic>>(
-                value: produto,
-                child: Text('${produto['marca']} - ${produto['modelo']}'),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() => produtoSelecionado = value);
-            },
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(onPressed: simular, child: const Text('Simular')),
-          const SizedBox(height: 16),
-          if (resultadoWidget != null) ...resultadoWidget!,
-        ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<Map<String, dynamic>>(
+              value: produtoSelecionado,
+              decoration: const InputDecoration(labelText: 'Selecione o Produto'),
+              items: produtos.map((produto) {
+                return DropdownMenuItem<Map<String, dynamic>>(
+                  value: produto,
+                  child: Text('${produto['marca']} - ${produto['modelo']}'),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() => produtoSelecionado = value);
+              },
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: simular,
+              style: AppButtonStyle.primaryButton,
+              child: const Text('Simular'),
+            ),
+            const SizedBox(height: 16),
+            if (resultadoWidget != null) ...resultadoWidget!,
+          ],
+        ),
       ),
     );
   }
