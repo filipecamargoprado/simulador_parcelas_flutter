@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
 import 'dart:math';
-import '../utils/theme.dart';
+import '../services/api_service.dart';
 import '../components/app_scaffold.dart';
+import '../utils/theme.dart';
 
 class SimulacaoScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
   final bool isAdmin;
+
   const SimulacaoScreen({super.key, required this.usuario, required this.isAdmin});
 
   @override
@@ -72,27 +73,6 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     final entradaPercentual = double.tryParse(entradaPercentualController.text) ?? 0;
 
     final parcelasReal = tipoParcelamento == 'Quinzenal' ? parcelas * 2 : parcelas;
-
-    if (margem < 35 || juros < 19 || entradaPercentual < 20 || parcelas > 12) {
-      final List<String> avisos = [];
-
-      if (margem < 35) avisos.add('⚠️ Margem deve ser >= 35%');
-      if (juros < 19) avisos.add('⚠️ Juros deve ser >= 19%');
-      if (entradaPercentual < 20) avisos.add('⚠️ Entrada >= 20%');
-      if (parcelas > 12) avisos.add('⚠️ Parcelas <= 12');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: avisos.map((e) => Text(e)).toList(),
-          ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-      return;
-    }
 
     final custoPorBoletoTotal = custoPorBoleto * parcelasReal;
     final cmvTotal = cmv + campanha + custoSaque + licencaAnual + custoPorBoletoTotal + mensalidade;
@@ -183,7 +163,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                       'forma_pagamento': formaPagamento,
                       'parcelas_cobrir_custo': parcelasParaCobrirCusto,
                       'total_pagar': total,
-                      'salvo_por': widget.usuario['nome'] ?? widget.usuario['email'],
+                      'salvo_por': widget.usuario['nome'] ?? 'Desconhecido',
                     };
 
                     await ApiService.salvarSimulacao(dados);

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:simulador_parcelas_jufap/screens/simulacao_screen.dart';
-import 'screens/login_screen.dart';
-import 'utils/theme.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:simulador_parcelas_jufap/screens/login_screen.dart';
+import 'package:simulador_parcelas_jufap/screens/home_screen.dart';
+import 'package:simulador_parcelas_jufap/utils/theme.dart';
+import 'package:simulador_parcelas_jufap/services/token_storage.dart';
+import 'package:simulador_parcelas_jufap/services/api_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  await dotenv.load(fileName: ".env"); // 🔐 Carrega .env
+  await GetStorage.init(); // 🔥 Inicializa armazenamento local
+  await ApiService.testarConexao();
   runApp(const MyApp());
 }
 
@@ -15,6 +20,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final token = TokenStorage.pegarToken();
+    final usuario = TokenStorage.pegarUsuario();
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Jufap Simulador Parcelas',
@@ -51,7 +59,13 @@ class MyApp extends StatelessWidget {
           bodyMedium: AppTextStyles.body,
         ),
       ),
-      home: const SimulacaoScreen(usuario: {'email':'filipecamargoprado@gmail.com'}, isAdmin: true),
+      // 🔥 Se tem token e usuário salvo → HomeScreen | Se não → Login
+      home: (token != null && usuario != null)
+          ? HomeScreen(
+        usuario: usuario,
+        isAdmin: usuario['is_admin'] == 1,
+      )
+          : const LoginScreen(),
     );
   }
 }

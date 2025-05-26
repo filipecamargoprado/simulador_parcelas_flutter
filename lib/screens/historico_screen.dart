@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
-import '../utils/theme.dart';
 import '../components/app_scaffold.dart';
+import '../utils/theme.dart';
 
 class HistoricoScreen extends StatefulWidget {
   final bool isAdmin;
   final Map<String, dynamic> usuario;
+
   const HistoricoScreen({super.key, required this.isAdmin, required this.usuario});
 
   @override
@@ -140,14 +141,9 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                               ),
                             ),
                             if (widget.isAdmin)
-                              Wrap(
-                                spacing: 4,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    onPressed: () => excluir(s['id']),
-                                  ),
-                                ],
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () => excluir(s['id']),
                               ),
                           ],
                         ),
@@ -160,7 +156,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                         Text('Parcelamento: ${s['parcelas']}x ${s['tipo_parcelamento']}'),
                         Text('Forma de Pagamento: ${s['forma_pagamento']}'),
                         Text('📈 Total a pagar: ${formatarReal(s['total_pagar'])}'),
-                        Text('📊 Parcelas para cobrir o custo: ${s['parcelas_cobrir_custo']}'),
+                        Text('📊 Parcelas p/ Cobrir Custo: ${s['parcelas_cobrir_custo']}'),
                         Text('📅 Criado em: ${formatarDataHora(s['data_hora'])}'),
                         if (s['salvo_por'] != null)
                           Text('👤 Criado por: ${s['salvo_por']}'),

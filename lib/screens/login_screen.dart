@@ -1,7 +1,7 @@
-import 'home_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/theme.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +18,14 @@ class _LoginScreenState extends State<LoginScreen> {
   void fazerLogin() async {
     final email = emailController.text.trim();
     final senha = senhaController.text.trim();
+
+    if (email.isEmpty || senha.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Preencha e-mail e senha')),
+      );
+      return;
+    }
+
     setState(() => carregando = true);
 
     try {
@@ -28,25 +36,23 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (usuarioEncontrado != null) {
-        final bool isAdmin = usuarioEncontrado['is_admin'] == 1;
-
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => HomeScreen(
-              isAdmin: isAdmin,
               usuario: usuarioEncontrado,
+              isAdmin: usuarioEncontrado['is_admin'] == 1,
             ),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuário ou senha inválidos')),
+          const SnackBar(content: Text('❌ Usuário ou senha inválidos')),
         );
       }
-    } catch (_) {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao conectar com o servidor')),
+        const SnackBar(content: Text('❌ Erro ao conectar com o servidor')),
       );
     } finally {
       setState(() => carregando = false);
@@ -97,7 +103,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
                     : const Text('Entrar'),
               ),

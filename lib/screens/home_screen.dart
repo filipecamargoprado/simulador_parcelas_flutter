@@ -38,14 +38,20 @@ class _HomeScreenState extends State<HomeScreen> {
           isAdmin: widget.isAdmin,
         );
       case 3:
-        return PerfilScreen(usuario: widget.usuario);
+        return PerfilScreen(
+          usuario: widget.usuario,
+          isAdmin: widget.isAdmin,
+        );
       case 4:
         return HistoricoScreen(
           usuario: widget.usuario,
           isAdmin: widget.isAdmin,
         );
       default:
-        return const SizedBox();
+        return SimulacaoScreen(
+          usuario: widget.usuario,
+          isAdmin: widget.isAdmin,
+        );
     }
   }
 
@@ -79,10 +85,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      widget.usuario['nome'] ?? 'Usuário',
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          widget.usuario['nome'] ?? 'Usuário',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          widget.usuario['email'] ?? '',
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ],

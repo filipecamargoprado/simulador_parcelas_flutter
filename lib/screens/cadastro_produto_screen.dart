@@ -1,22 +1,17 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../utils/planilha_util.dart';
-import 'package:excel/excel.dart';
-import 'package:csv/csv.dart';
-import 'dart:typed_data';
-import 'dart:convert';
-import 'dart:io';
-import '../utils/theme.dart';
 import '../components/app_scaffold.dart';
-
-final planilhaUtil = getPlanilhaUtil();
+import '../utils/theme.dart';
 
 class CadastroProdutoScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
   final bool isAdmin;
-  const CadastroProdutoScreen({super.key, required this.usuario, required this.isAdmin});
+
+  const CadastroProdutoScreen({
+    super.key,
+    required this.usuario,
+    required this.isAdmin,
+  });
 
   @override
   State<CadastroProdutoScreen> createState() => _CadastroProdutoScreenState();
@@ -27,44 +22,37 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
   final modeloController = TextEditingController();
   final cmvController = TextEditingController();
   final buscaController = TextEditingController();
-  bool _importando = false;
 
   int? editIndex;
-  List<Map<String, dynamic>> produtosFiltrados = [];
+  List<Map<String, dynamic>> produtos = [];
 
   @override
   void initState() {
     super.initState();
     buscaController.addListener(_filtrarProdutos);
-    Future.microtask(() => _carregarProdutos());
-  }
-
-  Future<void> importarProdutos() async {
-    // (mantém exatamente igual)
+    Future.microtask(_carregarProdutos);
   }
 
   Future<void> _carregarProdutos() async {
     try {
       final lista = await ApiService.getProdutos();
       setState(() {
-        produtosFiltrados = List<Map<String, dynamic>>.from(lista);
+        produtos = List<Map<String, dynamic>>.from(lista);
       });
-    } catch (e) {
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Não foi possível carregar os produtos.')),
+        const SnackBar(content: Text('❌ Erro ao carregar produtos')),
       );
     }
   }
 
-  void _filtrarProdutos() async {
+  void _filtrarProdutos() {
     final query = buscaController.text.toLowerCase();
-    final todos = List<Map<String, dynamic>>.from(await ApiService.getProdutos());
-
     setState(() {
-      produtosFiltrados = todos.where((p) =>
-      p['marca'].toLowerCase().contains(query) ||
-          p['modelo'].toLowerCase().contains(query)
-      ).toList();
+      produtos = produtos.where((p) {
+        final nome = '${p['marca']} ${p['modelo']}'.toLowerCase();
+        return nome.contains(query);
+      }).toList();
     });
   }
 
@@ -75,22 +63,25 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
 
     if (marca.isEmpty || modelo.isEmpty || cmv.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Preencha todos os campos para salvar.')),
+        const SnackBar(content: Text('⚠️ Preencha todos os campos')),
       );
       return;
     }
 
     final produto = {'marca': marca, 'modelo': modelo, 'cmv': cmv};
-    final nomeProduto = '$marca - $modelo';
 
     try {
       if (editIndex != null) {
-        final id = produtosFiltrados[editIndex!]['id'];
+        final id = produtos[editIndex!]['id'];
         await ApiService.atualizarProduto(id, produto);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Produto atualizado: $nomeProduto')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Produto atualizado com sucesso')),
+        );
       } else {
         await ApiService.salvarProduto(produto);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Produto salvo: $nomeProduto')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Produto salvo com sucesso')),
+        );
       }
 
       marcaController.clear();
@@ -100,136 +91,128 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
       _carregarProdutos();
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Erro ao salvar o produto.')),
+        const SnackBar(content: Text('❌ Erro ao salvar produto')),
       );
     }
   }
 
-  void editarProduto(int index, Map p) {
-    // (mantém igual)
+  void editar(int index) {
+    final produto = produtos[index];
+    setState(() {
+      marcaController.text = produto['marca'];
+      modeloController.text = produto['modelo'];
+      cmvController.text = produto['cmv'].toString();
+      editIndex = index;
+    });
   }
 
-  void excluir(int i) async {
-    // (mantém igual)
-  }
+  void excluir(int index) async {
+    final id = produtos[index]['id'];
 
-  @override
-  void dispose() {
-    marcaController.dispose();
-    modeloController.dispose();
-    cmvController.dispose();
-    buscaController.dispose();
-    super.dispose();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Excluir Produto'),
+        content: const Text('Deseja realmente excluir este produto?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir')),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await ApiService.excluirProduto(id);
+        _carregarProdutos();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Produto excluído com sucesso')),
+        );
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Erro ao excluir produto')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Cadastro de Produto',
-      isAdmin: widget.isAdmin,
       usuario: widget.usuario,
+      isAdmin: widget.isAdmin,
       child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Cadastro de Produto',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Cadastro de Produto',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: marcaController,
+              decoration: const InputDecoration(labelText: 'Marca'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: modeloController,
+              decoration: const InputDecoration(labelText: 'Modelo'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: cmvController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'CMV'),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: ElevatedButton(
+                onPressed: salvar,
+                style: AppButtonStyle.primaryButton,
+                child: const Text('Salvar Produto'),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: marcaController,
-                decoration: const InputDecoration(labelText: 'Marca'),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: buscaController,
+              decoration: const InputDecoration(
+                labelText: 'Buscar Produto',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: modeloController,
-                decoration: const InputDecoration(labelText: 'Modelo'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: cmvController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'CMV'),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: ElevatedButton(
-                  onPressed: salvar,
-                  style: AppButtonStyle.primaryButton,
-                  child: const Text('Salvar Produto'),
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: buscaController,
-                decoration: const InputDecoration(
-                  labelText: 'Buscar Produto',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.spaceBetween,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.upload_file),
-                    label: const Text('Importar Produtos'),
-                    onPressed: importarProdutos,
-                  ),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.download),
-                    label: const Text('Exportar Produtos'),
-                    onPressed: () async {
-                      try {
-                        await planilhaUtil.gerarPlanilhaProdutos(produtosFiltrados);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ Planilha gerada com sucesso.')),
-                        );
-                      } catch (_) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('❌ Erro ao gerar planilha.')),
-                        );
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text('Produtos Cadastrados', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: produtosFiltrados.length,
-                itemBuilder: (context, index) {
-                  final p = produtosFiltrados[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 1,
-                    child: ListTile(
-                      title: Text('${p['marca']} - ${p['modelo']}'),
-                      subtitle: Text('CMV: R\$ ${p['cmv']}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(icon: const Icon(Icons.edit), onPressed: () => editarProduto(index, p)),
-                          IconButton(icon: const Icon(Icons.delete), onPressed: () => excluir(index)),
-                        ],
-                      ),
+            ),
+            const SizedBox(height: 20),
+            const Text('Produtos Cadastrados', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: produtos.length,
+              itemBuilder: (context, index) {
+                final p = produtos[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 1,
+                  child: ListTile(
+                    title: Text('${p['marca']} - ${p['modelo']}'),
+                    subtitle: Text('CMV: R\$ ${p['cmv']}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(icon: const Icon(Icons.edit), onPressed: () => editar(index)),
+                        IconButton(icon: const Icon(Icons.delete), onPressed: () => excluir(index)),
+                      ],
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 40),
-            ],
-          ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );

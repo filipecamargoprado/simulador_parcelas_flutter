@@ -4,7 +4,9 @@ import '../utils/theme.dart';
 
 class PerfilScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
-  const PerfilScreen({super.key, required this.usuario});
+  final bool isAdmin;
+
+  const PerfilScreen({super.key, required this.usuario, required this.isAdmin});
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -22,7 +24,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     return AppScaffold(
       title: 'Meu Perfil',
-      isAdmin: true,
+      isAdmin: widget.isAdmin,
       usuario: usuario,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -87,24 +89,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                if (atualSenha.text != usuario['senha']) {
+                if (atualSenha.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ Senha atual incorreta.')),
+                    const SnackBar(content: Text('❌ Preencha a senha atual')),
                   );
                 } else if (novaSenha1.text.isEmpty || novaSenha2.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ Nova senha não pode estar vazia.')),
+                    const SnackBar(content: Text('❌ Preencha a nova senha')),
                   );
                 } else if (novaSenha1.text != novaSenha2.text) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ As novas senhas não coincidem.')),
+                    const SnackBar(content: Text('❌ As novas senhas não coincidem')),
                   );
                 } else {
                   atualSenha.clear();
                   novaSenha1.clear();
                   novaSenha2.clear();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✅ Senha alterada com sucesso!')),
+                    const SnackBar(content: Text('✅ Senha alterada com sucesso! (Simulado)')),
                   );
                 }
               },

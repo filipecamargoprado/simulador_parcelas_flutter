@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/login_screen.dart';
+import '../services/api_service.dart';
 import '../utils/theme.dart';
 
 class AppScaffold extends StatelessWidget {
@@ -28,52 +29,86 @@ class AppScaffold extends StatelessWidget {
       drawer: showDrawer
           ? Drawer(
         child: ListView(
+          padding: EdgeInsets.zero,
           children: [
-            Container(
-              color: AppColors.primary,
-              padding: const EdgeInsets.all(16),
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+              ),
               child: Row(
                 children: [
                   const CircleAvatar(
                     radius: 30,
-                    backgroundImage: AssetImage('assets/images/logo_jufap.jpeg'),
+                    backgroundImage:
+                    AssetImage('assets/images/logo_jufap.jpeg'),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(usuario['nome'] ?? 'Usuário',
-                          style: const TextStyle(color: Colors.white)),
-                      Text(usuario['email'] ?? '',
-                          style: const TextStyle(color: Colors.white, fontSize: 12)),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          usuario['nome'] ?? 'Usuário',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          usuario['email'] ?? '',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.calculate),
               title: const Text('Simulação de Parcelas'),
-              onTap: () => Navigator.pushReplacementNamed(context, '/simulacao'),
+              onTap: () =>
+                  Navigator.pushReplacementNamed(context, '/simulacao'),
             ),
             if (isAdmin)
               ListTile(
+                leading: const Icon(Icons.shopping_cart),
                 title: const Text('Cadastro de Produto'),
-                onTap: () => Navigator.pushReplacementNamed(context, '/cadastro-produto'),
+                onTap: () => Navigator.pushReplacementNamed(
+                    context, '/cadastro-produto'),
               ),
             if (isAdmin)
               ListTile(
+                leading: const Icon(Icons.person_add),
                 title: const Text('Cadastro de Usuário'),
-                onTap: () => Navigator.pushReplacementNamed(context, '/cadastro-usuario'),
+                onTap: () => Navigator.pushReplacementNamed(
+                    context, '/cadastro-usuario'),
               ),
             ListTile(
+              leading: const Icon(Icons.history),
               title: const Text('Histórico de Simulações'),
-              onTap: () => Navigator.pushReplacementNamed(context, '/historico'),
+              onTap: () =>
+                  Navigator.pushReplacementNamed(context, '/historico'),
             ),
             const Divider(),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Perfil'),
+              onTap: () =>
+                  Navigator.pushReplacementNamed(context, '/perfil'),
+            ),
             ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Sair'),
               onTap: () {
+                ApiService.logout();
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                       (route) => false,
