@@ -9,7 +9,11 @@ class SimulacaoScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
   final bool isAdmin;
 
-  const SimulacaoScreen({super.key, required this.usuario, required this.isAdmin});
+  const SimulacaoScreen({
+    super.key,
+    required this.usuario,
+    required this.isAdmin,
+  });
 
   @override
   State<SimulacaoScreen> createState() => _SimulacaoScreenState();
@@ -46,7 +50,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
       });
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao carregar produtos')),
+        const SnackBar(content: Text('❌ Erro ao carregar produtos')),
       );
     } finally {
       setState(() => carregandoProdutos = false);
@@ -61,11 +65,11 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     if (produtoSelecionado == null) return;
 
     final cmv = double.tryParse(produtoSelecionado!['cmv'].toString()) ?? 0;
-    final campanha = 30.0;
-    final custoPorBoleto = 3.5;
-    final custoSaque = 3.99;
-    final licencaAnual = 59.9;
-    final mensalidade = 5.0;
+    const campanha = 30.0;
+    const custoPorBoleto = 3.5;
+    const custoSaque = 3.99;
+    const licencaAnual = 59.9;
+    const mensalidade = 5.0;
 
     final parcelas = int.tryParse(parcelasController.text) ?? 12;
     final margem = double.tryParse(margemController.text) ?? 0;
@@ -73,20 +77,18 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     final entradaPercentual = double.tryParse(entradaPercentualController.text) ?? 0;
 
     final parcelasReal = tipoParcelamento == 'Quinzenal' ? parcelas * 2 : parcelas;
-
     final custoPorBoletoTotal = custoPorBoleto * parcelasReal;
     final cmvTotal = cmv + campanha + custoSaque + licencaAnual + custoPorBoletoTotal + mensalidade;
     precoSugerido = cmvTotal / (1 - margem / 100);
 
     double precoVenda = double.tryParse(
-        precoVendaController.text.replaceAll('.', '').replaceAll(',', '.')
-    ) ?? precoSugerido!;
+        precoVendaController.text.replaceAll('.', '').replaceAll(',', '.')) ?? precoSugerido!;
 
     if (precoVenda < precoSugerido!) {
       precoVenda = precoSugerido!;
       precoVendaController.text = precoVenda.toStringAsFixed(2);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Preço final deve ser >= preço sugerido.')),
+        const SnackBar(content: Text('⚠️ Preço final deve ser maior ou igual ao preço sugerido.')),
       );
     }
 
@@ -245,9 +247,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                       DropdownMenuItem(value: 'Pix', child: Text('Pix')),
                       DropdownMenuItem(value: 'Dinheiro', child: Text('Dinheiro')),
                     ],
-                    onChanged: (value) {
-                      setState(() => formaPagamento = value!);
-                    },
+                    onChanged: (value) => setState(() => formaPagamento = value!),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -259,9 +259,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                       DropdownMenuItem(value: 'Mensal', child: Text('Mensal')),
                       DropdownMenuItem(value: 'Quinzenal', child: Text('Quinzenal')),
                     ],
-                    onChanged: (value) {
-                      setState(() => tipoParcelamento = value!);
-                    },
+                    onChanged: (value) => setState(() => tipoParcelamento = value!),
                   ),
                 ),
               ],
@@ -276,9 +274,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                   child: Text('${produto['marca']} - ${produto['modelo']}'),
                 );
               }).toList(),
-              onChanged: (value) {
-                setState(() => produtoSelecionado = value);
-              },
+              onChanged: (value) => setState(() => produtoSelecionado = value),
             ),
             const SizedBox(height: 20),
             ElevatedButton(

@@ -57,3 +57,45 @@ class AppButtonStyle {
     ),
   );
 }
+
+// 🔥 Tema Global do App
+final ThemeData appTheme = ThemeData(
+  scaffoldBackgroundColor: AppColors.background,
+  primaryColor: AppColors.primary,
+  appBarTheme: const AppBarTheme(
+    backgroundColor: AppColors.primary,
+    foregroundColor: Colors.white,
+    elevation: 0,
+    titleTextStyle: TextStyle(
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+    ),
+    iconTheme: IconThemeData(color: Colors.white),
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: AppButtonStyle.primaryButton,
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: AppColors.primary),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Colors.grey),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: AppColors.primary, width: 2),
+    ),
+    labelStyle: const TextStyle(color: AppColors.textSecondary),
+  ),
+  textTheme: const TextTheme(
+    titleLarge: AppTextStyles.title,
+    titleMedium: AppTextStyles.subtitle,
+    bodyMedium: AppTextStyles.body,
+  ),
+);

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/theme.dart';
-import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,30 +28,17 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => carregando = true);
 
     try {
-      final usuarios = await ApiService.getUsuarios();
-      final usuarioEncontrado = usuarios.firstWhere(
-            (u) => u['email'] == email && u['senha'] == senha,
-        orElse: () => null,
-      );
-
-      if (usuarioEncontrado != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              usuario: usuarioEncontrado,
-              isAdmin: usuarioEncontrado['is_admin'] == 1,
-            ),
-          ),
-        );
+      final sucesso = await ApiService.login(email, senha);
+      if (sucesso) {
+        Navigator.pushReplacementNamed(context, '/simulacao');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Usuário ou senha inválidos')),
+          const SnackBar(content: Text('❌ E-mail ou senha inválidos')),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Erro ao conectar com o servidor')),
+        SnackBar(content: Text('❌ Erro ao conectar: $e')),
       );
     } finally {
       setState(() => carregando = false);

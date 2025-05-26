@@ -8,7 +8,11 @@ class HistoricoScreen extends StatefulWidget {
   final bool isAdmin;
   final Map<String, dynamic> usuario;
 
-  const HistoricoScreen({super.key, required this.isAdmin, required this.usuario});
+  const HistoricoScreen({
+    super.key,
+    required this.isAdmin,
+    required this.usuario,
+  });
 
   @override
   State<HistoricoScreen> createState() => _HistoricoScreenState();
@@ -46,7 +50,10 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
   void _filtrar() {
     final query = buscaController.text.toLowerCase();
     setState(() {
-      filtrado = historico.where((s) => s['produto'].toLowerCase().contains(query)).toList();
+      filtrado = historico.where((s) {
+        return s['produto'].toString().toLowerCase().contains(query) ||
+            s['forma_pagamento'].toString().toLowerCase().contains(query);
+      }).toList();
     });
   }
 
@@ -123,7 +130,9 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                 final s = filtrado[index];
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 2,
                   child: Padding(
                     padding: const EdgeInsets.all(16),

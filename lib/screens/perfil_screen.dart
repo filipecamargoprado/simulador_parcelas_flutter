@@ -6,17 +6,42 @@ class PerfilScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
   final bool isAdmin;
 
-  const PerfilScreen({super.key, required this.usuario, required this.isAdmin});
+  const PerfilScreen({
+    super.key,
+    required this.usuario,
+    required this.isAdmin,
+  });
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
-  final TextEditingController atualSenha = TextEditingController();
-  final TextEditingController novaSenha1 = TextEditingController();
-  final TextEditingController novaSenha2 = TextEditingController();
+  final atualSenha = TextEditingController();
+  final novaSenha1 = TextEditingController();
+  final novaSenha2 = TextEditingController();
   bool mostrarSenha = false;
+
+  void salvarSenha() {
+    if (atualSenha.text.isEmpty) {
+      _showMessage('❌ Preencha a senha atual');
+    } else if (novaSenha1.text.isEmpty || novaSenha2.text.isEmpty) {
+      _showMessage('❌ Preencha a nova senha');
+    } else if (novaSenha1.text != novaSenha2.text) {
+      _showMessage('❌ As novas senhas não coincidem');
+    } else {
+      atualSenha.clear();
+      novaSenha1.clear();
+      novaSenha2.clear();
+      _showMessage('✅ Senha alterada com sucesso! (Simulado)');
+    }
+  }
+
+  void _showMessage(String texto) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(texto)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,28 +113,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
-                if (atualSenha.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ Preencha a senha atual')),
-                  );
-                } else if (novaSenha1.text.isEmpty || novaSenha2.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ Preencha a nova senha')),
-                  );
-                } else if (novaSenha1.text != novaSenha2.text) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ As novas senhas não coincidem')),
-                  );
-                } else {
-                  atualSenha.clear();
-                  novaSenha1.clear();
-                  novaSenha2.clear();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✅ Senha alterada com sucesso! (Simulado)')),
-                  );
-                }
-              },
+              onPressed: salvarSenha,
               style: AppButtonStyle.primaryButton,
               child: const Text('Salvar Alterações'),
             ),

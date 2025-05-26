@@ -25,6 +25,7 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
 
   int? editIndex;
   List<Map<String, dynamic>> produtos = [];
+  List<Map<String, dynamic>> produtosOriginais = [];
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
       final lista = await ApiService.getProdutos();
       setState(() {
         produtos = List<Map<String, dynamic>>.from(lista);
+        produtosOriginais = List<Map<String, dynamic>>.from(lista);
       });
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -49,10 +51,14 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
   void _filtrarProdutos() {
     final query = buscaController.text.toLowerCase();
     setState(() {
-      produtos = produtos.where((p) {
-        final nome = '${p['marca']} ${p['modelo']}'.toLowerCase();
-        return nome.contains(query);
-      }).toList();
+      if (query.isEmpty) {
+        produtos = List.from(produtosOriginais);
+      } else {
+        produtos = produtosOriginais.where((p) {
+          final nome = '${p['marca']} ${p['modelo']}'.toLowerCase();
+          return nome.contains(query);
+        }).toList();
+      }
     });
   }
 
@@ -115,8 +121,12 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
         title: const Text('Excluir Produto'),
         content: const Text('Deseja realmente excluir este produto?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Excluir')),
         ],
       ),
     );
@@ -185,7 +195,8 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Produtos Cadastrados', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Produtos Cadastrados',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             ListView.builder(
               shrinkWrap: true,
@@ -195,7 +206,8 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                 final p = produtos[index];
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                   elevation: 1,
                   child: ListTile(
                     title: Text('${p['marca']} - ${p['modelo']}'),
@@ -203,8 +215,12 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(icon: const Icon(Icons.edit), onPressed: () => editar(index)),
-                        IconButton(icon: const Icon(Icons.delete), onPressed: () => excluir(index)),
+                        IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => editar(index)),
+                        IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => excluir(index)),
                       ],
                     ),
                   ),

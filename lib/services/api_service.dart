@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static final String baseUrl = dotenv.env['API_URL'] ?? 'http://grupojufap.com.br:3000';
+  static final String baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.88.45:3000';
   static final _box = GetStorage();
 
   static String? _token;

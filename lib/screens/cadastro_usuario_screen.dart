@@ -24,6 +24,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
   final buscaController = TextEditingController();
 
   List usuarios = [];
+  List usuariosOriginais = [];
   int? editingIndex;
 
   @override
@@ -37,24 +38,29 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     try {
       final todos = await ApiService.getUsuarios();
       setState(() {
-        usuarios = filtro.isEmpty
-            ? todos
-            : todos.where((u) {
-          final nome = u['nome'].toString().toLowerCase();
-          final email = u['email'].toString().toLowerCase();
-          return nome.contains(filtro.toLowerCase()) ||
-              email.contains(filtro.toLowerCase());
-        }).toList();
+        usuarios = todos;
+        usuariosOriginais = todos;
       });
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Não foi possível carregar os usuários.')),
+        const SnackBar(content: Text('❌ Erro ao carregar usuários.')),
       );
     }
   }
 
   void _filtrarUsuarios() {
-    carregarUsuarios(filtro: buscaController.text);
+    final query = buscaController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        usuarios = List.from(usuariosOriginais);
+      } else {
+        usuarios = usuariosOriginais.where((u) {
+          final nome = u['nome'].toString().toLowerCase();
+          final email = u['email'].toString().toLowerCase();
+          return nome.contains(query) || email.contains(query);
+        }).toList();
+      }
+    });
   }
 
   void salvarUsuario() async {
@@ -116,7 +122,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     setState(() {
       nomeController.text = u['nome'];
       emailController.text = u['email'];
-      senhaController.text = '';
+      senhaController.clear();
       editingIndex = index;
     });
   }
