@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static final String baseUrl = dotenv.env['API_URL'] ?? 'http://192.168.88.45:3000';
+  static final String baseUrl = dotenv.env['API_URL'] ?? 'http://grupojufap.com.br:3000';
   static final _box = GetStorage();
 
   static String? _token;
@@ -15,6 +15,9 @@ class ApiService {
   static Future<void> init() async {
     _token = _box.read('token');
     usuarioLogado = _box.read('usuario');
+
+    print('🗂️ Token carregado: $_token');
+    print('👤 Usuário carregado: $usuarioLogado');
   }
 
   // ✅ TESTE DE CONEXÃO
@@ -37,29 +40,45 @@ class ApiService {
 
   // 🔐 Login
   static Future<bool> login(String email, String senha) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'senha': senha}),
-    );
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'senha': senha}),
+      );
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      _token = data['token'];
-      usuarioLogado = {
-        'id': data['usuario']['id'],
-        'nome': data['usuario']['nome'],
-        'email': data['usuario']['email'],
-        'is_admin': data['usuario']['is_admin'],
-      };
+      print('🔑 Response Status: ${res.statusCode}');
+      print('🔑 Response Body: ${res.body}');
 
-      _box.write('token', _token);
-      _box.write('usuario', usuarioLogado);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
 
-      return true;
+        if (data['token'] != null && data['usuario'] != null) {
+          _token = data['token'];
+          usuarioLogado = {
+            'id': data['usuario']['id'],
+            'nome': data['usuario']['nome'],
+            'email': data['usuario']['email'],
+            'is_admin': data['usuario']['is_admin'],
+          };
+
+          _box.write('token', _token);
+          _box.write('usuario', usuarioLogado);
+
+          print('✅ Login bem-sucedido. Usuário: $usuarioLogado');
+          return true;
+        } else {
+          print('🚫 Dados inválidos no retorno do login');
+          return false;
+        }
+      } else {
+        print('🚫 Erro no login: ${res.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Erro na requisição de login: $e');
+      return false;
     }
-
-    return false;
   }
 
   // 🚪 Logout
@@ -68,6 +87,7 @@ class ApiService {
     usuarioLogado = null;
     _box.remove('token');
     _box.remove('usuario');
+    print('🚪 Logout realizado com sucesso');
   }
 
   // =================== PRODUTOS =====================
@@ -83,9 +103,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode(produto),
     );
-    if (res.statusCode != 201) {
-      throw Exception('Erro ao salvar produto');
-    }
+    if (res.statusCode != 201) throw Exception('Erro ao salvar produto');
   }
 
   static Future<void> atualizarProduto(int id, Map<String, dynamic> produto) async {
@@ -94,9 +112,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode(produto),
     );
-    if (res.statusCode != 200) {
-      throw Exception('Erro ao atualizar produto');
-    }
+    if (res.statusCode != 200) throw Exception('Erro ao atualizar produto');
   }
 
   static Future<void> excluirProduto(int id) async {
@@ -104,9 +120,7 @@ class ApiService {
       Uri.parse('$baseUrl/produtos/$id'),
       headers: headers,
     );
-    if (res.statusCode != 200) {
-      throw Exception('Erro ao excluir produto');
-    }
+    if (res.statusCode != 200) throw Exception('Erro ao excluir produto');
   }
 
   // =================== USUÁRIOS =====================
@@ -122,9 +136,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode(usuario),
     );
-    if (res.statusCode != 201) {
-      throw Exception('Erro ao salvar usuário');
-    }
+    if (res.statusCode != 201) throw Exception('Erro ao salvar usuário');
   }
 
   static Future<void> atualizarUsuario(int id, Map<String, dynamic> usuario) async {
@@ -133,9 +145,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode(usuario),
     );
-    if (res.statusCode != 200) {
-      throw Exception('Erro ao atualizar usuário');
-    }
+    if (res.statusCode != 200) throw Exception('Erro ao atualizar usuário');
   }
 
   static Future<void> excluirUsuario(int id) async {
@@ -143,9 +153,7 @@ class ApiService {
       Uri.parse('$baseUrl/usuarios/$id'),
       headers: headers,
     );
-    if (res.statusCode != 200) {
-      throw Exception('Erro ao excluir usuário');
-    }
+    if (res.statusCode != 200) throw Exception('Erro ao excluir usuário');
   }
 
   // =================== HISTÓRICO =====================
@@ -163,9 +171,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode(dados),
     );
-    if (res.statusCode != 201) {
-      throw Exception('Erro ao salvar simulação');
-    }
+    if (res.statusCode != 201) throw Exception('Erro ao salvar simulação');
   }
 
   static Future<void> excluirSimulacao(int id) async {
@@ -173,8 +179,6 @@ class ApiService {
       Uri.parse('$baseUrl/historico/$id'),
       headers: headers,
     );
-    if (res.statusCode != 200) {
-      throw Exception('Erro ao excluir histórico');
-    }
+    if (res.statusCode != 200) throw Exception('Erro ao excluir histórico');
   }
 }
