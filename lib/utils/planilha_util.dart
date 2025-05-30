@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'planilha_util_interface.dart';
 
 // Importa a implementação correta com base na plataforma

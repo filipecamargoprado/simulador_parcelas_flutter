@@ -30,7 +30,11 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final sucesso = await ApiService.login(email, senha);
       if (sucesso) {
-        Navigator.pushReplacementNamed(context, '/simulacao');
+        if (ApiService.precisaAlterarSenha) {
+          Navigator.pushReplacementNamed(context, '/alterar-senha-obrigatoria');
+        } else {
+          Navigator.pushReplacementNamed(context, '/simulacao');
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('❌ E-mail ou senha inválidos')),

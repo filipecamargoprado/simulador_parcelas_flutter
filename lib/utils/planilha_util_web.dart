@@ -7,7 +7,7 @@ class PlanilhaUtilImpl implements PlanilhaUtil {
   @override
   Future<void> gerarPlanilhaProdutos(List<Map<String, dynamic>> produtos) async {
     final excel = Excel.createExcel();
-    final Sheet sheet = excel['Produtos']!;
+    final Sheet sheet = excel['Produtos'];
     excel.delete('Sheet1');
 
     sheet.appendRow(<CellValue>[
@@ -41,7 +41,7 @@ class PlanilhaUtilImpl implements PlanilhaUtil {
   @override
   Future<void> gerarPlanilhaUsuarios(List<Map<String, dynamic>> usuarios) async {
     final excel = Excel.createExcel();
-    final Sheet sheet = excel['Usuarios']!;
+    final Sheet sheet = excel['Usuarios'];
     excel.delete('Sheet1');
 
     sheet.appendRow(<CellValue>[
@@ -76,7 +76,7 @@ class PlanilhaUtilImpl implements PlanilhaUtil {
   Future<void> gerarPlanilhaModelo({bool isUsuario = false}) async {
     final excel = Excel.createExcel();
     final nomeAba = isUsuario ? 'Usuarios' : 'Produtos';
-    final Sheet sheet = excel[nomeAba]!;
+    final Sheet sheet = excel[nomeAba];
     excel.delete('Sheet1');
 
     if (isUsuario) {

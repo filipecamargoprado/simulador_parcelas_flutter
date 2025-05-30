@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../components/app_scaffold.dart';
 import '../utils/theme.dart';
+import '../services/api_service.dart';
 
 class PerfilScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
@@ -21,26 +22,55 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final novaSenha1 = TextEditingController();
   final novaSenha2 = TextEditingController();
   bool mostrarSenha = false;
+  bool carregando = false;
 
-  void salvarSenha() {
-    if (atualSenha.text.isEmpty) {
-      _showMessage('❌ Preencha a senha atual');
-    } else if (novaSenha1.text.isEmpty || novaSenha2.text.isEmpty) {
-      _showMessage('❌ Preencha a nova senha');
-    } else if (novaSenha1.text != novaSenha2.text) {
-      _showMessage('❌ As novas senhas não coincidem');
-    } else {
+  bool erroSenhaAtual = false;
+  bool erroNovaSenha = false;
+  bool erroConfirmaSenha = false;
+
+  Future<void> salvarSenha() async {
+    final senhaAtual = atualSenha.text.trim();
+    final nova1 = novaSenha1.text.trim();
+    final nova2 = novaSenha2.text.trim();
+
+    setState(() {
+      erroSenhaAtual = senhaAtual.isEmpty;
+      erroNovaSenha = nova1.isEmpty || !validaSenha(nova1);
+      erroConfirmaSenha = nova2.isEmpty || nova1 != nova2;
+    });
+
+    if (erroSenhaAtual || erroNovaSenha || erroConfirmaSenha) {
+      return;
+    }
+
+    setState(() => carregando = true);
+
+    try {
+      await ApiService.alterarSenha(
+        id: widget.usuario['id'],
+        senhaAtual: senhaAtual,
+        novaSenha: nova1,
+      );
       atualSenha.clear();
       novaSenha1.clear();
       novaSenha2.clear();
-      _showMessage('✅ Senha alterada com sucesso! (Simulado)');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Senha alterada com sucesso')),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ Erro ao alterar senha. Verifique a senha atual.')),
+      );
+    } finally {
+      setState(() => carregando = false);
     }
   }
 
-  void _showMessage(String texto) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(texto)),
-    );
+  bool validaSenha(String senha) {
+    final hasUppercase = senha.contains(RegExp(r'[A-Z]'));
+    final hasSpecial = senha.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+    return senha.length >= 4 && hasUppercase && hasSpecial;
   }
 
   @override
@@ -65,7 +95,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
               children: [
                 const Icon(Icons.person, color: AppColors.primary),
                 const SizedBox(width: 8),
-                Text('Nome: ${usuario['nome']}', style: const TextStyle(fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    'Nome: ${usuario['nome']}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -73,7 +108,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
               children: [
                 const Icon(Icons.email, color: AppColors.primary),
                 const SizedBox(width: 8),
-                Text('E-mail: ${usuario['email']}', style: const TextStyle(fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    'E-mail: ${usuario['email']}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 30),
@@ -84,38 +124,57 @@ class _PerfilScreenState extends State<PerfilScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: atualSenha,
-              decoration: const InputDecoration(labelText: 'Senha Atual'),
               obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Senha Atual',
+                errorText: erroSenhaAtual ? 'Preencha a senha atual' : null,
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: novaSenha1,
+              obscureText: !mostrarSenha,
               decoration: InputDecoration(
                 labelText: 'Nova Senha',
                 suffixIcon: IconButton(
                   icon: Icon(mostrarSenha ? Icons.visibility : Icons.visibility_off),
                   onPressed: () => setState(() => mostrarSenha = !mostrarSenha),
                 ),
+                errorText: erroNovaSenha
+                    ? 'Mínimo 4 caracteres, 1 maiúscula e 1 caractere especial'
+                    : null,
               ),
-              obscureText: !mostrarSenha,
             ),
             const SizedBox(height: 8),
             TextField(
               controller: novaSenha2,
+              obscureText: !mostrarSenha,
               decoration: InputDecoration(
                 labelText: 'Confirmar Nova Senha',
                 suffixIcon: IconButton(
                   icon: Icon(mostrarSenha ? Icons.visibility : Icons.visibility_off),
                   onPressed: () => setState(() => mostrarSenha = !mostrarSenha),
                 ),
+                errorText: erroConfirmaSenha ? 'As senhas não coincidem' : null,
               ),
-              obscureText: !mostrarSenha,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => salvarSenha(), // 🔥 Aqui é o enter funcionando!
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: salvarSenha,
+            ElevatedButton.icon(
+              onPressed: carregando ? null : salvarSenha,
               style: AppButtonStyle.primaryButton,
-              child: const Text('Salvar Alterações'),
+              icon: const Icon(Icons.save),
+              label: carregando
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Text('Salvar Alterações'),
             ),
           ],
         ),

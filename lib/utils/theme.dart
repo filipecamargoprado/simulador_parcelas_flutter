@@ -56,6 +56,14 @@ class AppButtonStyle {
       borderRadius: BorderRadius.circular(8),
     ),
   );
+
+  static final ButtonStyle dangerButton = ElevatedButton.styleFrom(
+    backgroundColor: Colors.red,
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  );
 }
 
 // 🔥 Tema Global do App
