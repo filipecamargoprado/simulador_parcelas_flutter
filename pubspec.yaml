@@ -40,6 +40,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
+  path_provider_android: ^2.0.24
   cupertino_icons: ^1.0.8
   logger: ^2.0.2
   permission_handler: ^11.0.1

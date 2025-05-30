@@ -1,4 +1,3 @@
-// Imports necessários
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart';
@@ -8,6 +7,11 @@ import 'package:open_file/open_file.dart';
 import '../services/api_service.dart';
 import '../components/app_scaffold.dart';
 import '../utils/theme.dart';
+import 'package:flutter/foundation.dart';
+
+List<Map<String, dynamic>> processarProdutos(dynamic rawList) {
+  return List<Map<String, dynamic>>.from(rawList.whereType<Map<String, dynamic>>());
+}
 
 class CadastroProdutoScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
@@ -36,25 +40,66 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
   bool modoExportacao = false;
   bool todosSelecionados = false;
 
+  bool carregando = true;
+
+  final ScrollController scrollController = ScrollController();
+  int paginaAtual = 1;
+  bool carregandoMais = false;
+
   @override
   void initState() {
     super.initState();
     buscaController.addListener(_filtrarProdutos);
+    scrollController.addListener(() {
+      if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 100) {
+        carregarMaisProdutos();
+      }
+    });
     Future.microtask(carregarProdutos);
   }
 
-  Future<void> carregarProdutos() async {
+  Future<void> carregarMaisProdutos() async {
+    if (carregandoMais || carregando) return;
+
+    setState(() => carregandoMais = true);
+
     try {
-      final lista = await ApiService.getProdutos();
+      final novaListaBruta = await ApiService.getProdutos();
+      final novaListaConvertida = await compute(processarProdutos, novaListaBruta);
+
       setState(() {
-        produtos = List<Map<String, dynamic>>.from(lista);
-        produtosOriginais = List<Map<String, dynamic>>.from(lista);
+        produtos.addAll(novaListaConvertida);
+        produtosOriginais.addAll(novaListaConvertida);
+        selecionados.addAll(List<bool>.filled(novaListaConvertida.length, false));
+        paginaAtual++;
+      });
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Erro ao carregar mais produtos.')),
+      );
+    } finally {
+      setState(() => carregandoMais = false);
+    }
+  }
+
+  Future<void> carregarProdutos() async {
+    setState(() => carregando = true);
+
+    try {
+      final listaBruta = await ApiService.getProdutos();
+      final listaProcessada = await compute(processarProdutos, listaBruta);
+
+      setState(() {
+        produtos = listaProcessada;
+        produtosOriginais = List<Map<String, dynamic>>.from(listaProcessada);
         selecionados = List<bool>.filled(produtos.length, false);
       });
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('❌ Erro ao carregar produtos.')),
       );
+    } finally {
+      setState(() => carregando = false);
     }
   }
 
@@ -486,48 +531,63 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: buscaController,
-                    decoration: const InputDecoration(
-                      labelText: 'Buscar Produto',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: buscaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Buscar Produto',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: criarNovoProduto,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Novo Produto'),
-                  style: AppButtonStyle.primaryButton,
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: importarProdutos,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Importar'),
-                  style: AppButtonStyle.primaryButton,
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: toggleModoExportacao,
-                  icon: const Icon(Icons.checklist),
-                  label: const Text('Selecionar Produtos'),
-                  style: AppButtonStyle.primaryButton,
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: criarNovoProduto,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Novo Produto'),
+                      style: AppButtonStyle.primaryButton,
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: importarProdutos,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Importar'),
+                      style: AppButtonStyle.primaryButton,
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: toggleModoExportacao,
+                      icon: const Icon(Icons.checklist),
+                      label: const Text('Selecionar Produtos'),
+                      style: AppButtonStyle.primaryButton,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: produtos.length,
+            child: carregando
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+              controller: scrollController,
+              itemCount: produtos.length + (carregandoMais ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index == produtos.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
                 final p = produtos[index];
 
                 return Card(

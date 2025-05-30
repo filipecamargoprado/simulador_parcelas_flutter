@@ -7,6 +7,11 @@ import 'package:path_provider/path_provider.dart';
 import '../services/api_service.dart';
 import '../components/app_scaffold.dart';
 import '../utils/theme.dart';
+import 'package:flutter/foundation.dart';
+
+List<Map<String, dynamic>> processarUsuarios(dynamic rawList) {
+  return List<Map<String, dynamic>>.from(rawList.whereType<Map<String, dynamic>>());
+}
 
 class CadastroUsuarioScreen extends StatefulWidget {
   final Map<String, dynamic> usuario;
@@ -28,27 +33,69 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
   List usuariosOriginais = [];
   List<bool> selecionados = [];
   bool modoExportacao = false;
+  bool senhaVisivel = false;
+
+  bool carregando = true;
+  bool carregandoMais = false;
+  final ScrollController scrollController = ScrollController();
+  int paginaAtual = 1;
+
   bool todosSelecionados = false;
 
   @override
   void initState() {
     super.initState();
     buscaController.addListener(_filtrarUsuarios);
+    scrollController.addListener(() {
+      if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 100) {
+        carregarMaisUsuarios();
+      }
+    });
     Future.microtask(() => carregarUsuarios());
   }
 
-  Future<void> carregarUsuarios() async {
+  Future<void> carregarMaisUsuarios() async {
+    if (carregandoMais || carregando) return;
+
+    setState(() => carregandoMais = true);
+
     try {
-      final todos = await ApiService.getUsuarios();
+      final novaListaBruta = await ApiService.getUsuarios();
+      final novaListaConvertida = await compute(processarUsuarios, novaListaBruta);
+
       setState(() {
-        usuarios = todos;
-        usuariosOriginais = todos;
-        selecionados = List<bool>.filled(todos.length, false);
+        usuarios.addAll(novaListaConvertida);
+        usuariosOriginais.addAll(novaListaConvertida);
+        selecionados.addAll(List<bool>.filled(novaListaConvertida.length, false));
+        paginaAtual++;
+      });
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Erro ao carregar mais usuários.')),
+      );
+    } finally {
+      setState(() => carregandoMais = false);
+    }
+  }
+
+  Future<void> carregarUsuarios() async {
+    setState(() => carregando = true);
+
+    try {
+      final listaBruta = await ApiService.getUsuarios();
+      final listaConvertida = await compute(processarUsuarios, listaBruta);
+
+      setState(() {
+        usuarios = listaConvertida;
+        usuariosOriginais = List<Map<String, dynamic>>.from(listaConvertida);
+        selecionados = List<bool>.filled(usuarios.length, false);
       });
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('❌ Erro ao carregar usuários.')),
       );
+    } finally {
+      setState(() => carregando = false);
     }
   }
 
@@ -124,13 +171,13 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
       excel.delete(name);
     }
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/usuarios.xlsx');
+    final dir = await getExternalStorageDirectory(); // visível ao usuário
+    final file = File('${dir!.path}/usuarios.xlsx');
     await file.writeAsBytes(excel.encode()!);
     await OpenFile.open(file.path);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Exportação concluída com sucesso')),
+      SnackBar(content: Text('✅ Arquivo salvo em: ${file.path}')),
     );
 
     toggleModoExportacao();
@@ -277,12 +324,22 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                   ),
                   TextField(
                     controller: senhaController,
-                    obscureText: true,
+                    obscureText: !senhaVisivel,
                     decoration: InputDecoration(
                       labelText: 'Nova Senha (opcional)',
                       errorText: senhaInvalida
                           ? 'Senha fraca (mín. 4, 1 maiúscula, 1 especial)'
                           : null,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          senhaVisivel ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            senhaVisivel = !senhaVisivel;
+                          });
+                        },
+                      ),
                     ),
                     onSubmitted: (_) async {
                       final nome = nomeController.text.trim();
@@ -494,12 +551,22 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                   ),
                   TextField(
                     controller: senhaController,
-                    obscureText: true,
+                    obscureText: !senhaVisivel,
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       errorText: senhaInvalida
                           ? 'Senha fraca (mín. 4, 1 maiúscula, 1 especial)'
                           : null,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          senhaVisivel ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            senhaVisivel = !senhaVisivel;
+                          });
+                        },
+                      ),
                     ),
                     onSubmitted: (_) async {
                       final nome = nomeController.text.trim();
@@ -631,50 +698,66 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: buscaController,
-                    decoration: const InputDecoration(
-                      labelText: 'Buscar Usuário',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: buscaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Buscar Usuário',
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: _criarNovoUsuario,
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Novo Usuário'),
-                  style: AppButtonStyle.primaryButton,
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: importarUsuarios,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Importar'),
-                  style: AppButtonStyle.primaryButton,
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: toggleModoExportacao,
-                  icon: const Icon(Icons.checklist),
-                  label: const Text('Selecionar Usuários'),
-                  style: AppButtonStyle.primaryButton,
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _criarNovoUsuario,
+                      icon: const Icon(Icons.person_add),
+                      label: const Text('Novo Usuário'),
+                      style: AppButtonStyle.primaryButton,
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: importarUsuarios,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Importar'),
+                      style: AppButtonStyle.primaryButton,
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: toggleModoExportacao,
+                      icon: const Icon(Icons.checklist),
+                      label: const Text('Selecionar Usuários'),
+                      style: AppButtonStyle.primaryButton,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: usuarios.length,
+            child: carregando
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+              controller: scrollController,
+              itemCount: usuarios.length + (carregandoMais ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index == usuarios.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
                 final u = usuarios[index];
                 final isAdmin = u['is_admin'] == 1 || u['is_admin'] == true;
+
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -685,7 +768,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                       onChanged: (v) {
                         setState(() {
                           selecionados[index] = v ?? false;
-                          todosSelecionados = selecionados.every((element) => element);
+                          todosSelecionados = selecionados.every((e) => e);
                         });
                       },
                     )
@@ -709,7 +792,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                   ),
                 );
               },
-            ),
+            )
           ),
           if (modoExportacao)
             Padding(
