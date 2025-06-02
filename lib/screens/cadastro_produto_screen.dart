@@ -132,27 +132,10 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
     final marca = marcaController.text.trim();
     final modelo = modeloController.text.trim();
     final cmvStr = cmvController.text.trim();
-
     final cmv = double.tryParse(cmvStr);
 
-    final marcaErro = marca.isEmpty;
-    final modeloErro = modelo.isEmpty;
-    final cmvErro = cmv == null;
-
-    bool marcaInvalida = false;
-    bool modeloInvalido = false;
-    bool cmvInvalido = false;
-
-    setState(() {
-      marcaInvalida = marcaErro;
-      modeloInvalido = modeloErro;
-      cmvInvalido = cmvErro;
-    });
-
-    if (marcaErro || modeloErro || cmvErro) {
-      return;
-    }
-
+    // ✅ Validação já deve ter sido feita no popup (não precisa repetir aqui)
+    // Apenas monta os dados e salva
     final dados = {
       'marca': marca,
       'modelo': modelo,
@@ -184,7 +167,6 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
       );
     }
   }
-
 
   void abrirPopupProduto({
     required Map<String, dynamic> produto,
