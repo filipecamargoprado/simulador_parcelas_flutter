@@ -430,13 +430,13 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                 ElevatedButton.icon(
                   onPressed: () {
                     setState(() {
-                      modoExportacao = true;
+                      modoExportacao = !modoExportacao;
                       selecionados = List<bool>.filled(filtrado.length, false);
                       todosSelecionados = false;
                     });
                   },
                   icon: const Icon(Icons.checklist),
-                  label: const Text('Selecionar Simulações'),
+                  label: Text(modoExportacao ? 'Cancelar Seleção' : 'Selecionar Simulações'),
                   style: AppButtonStyle.primaryButton,
                 ),
               ],
