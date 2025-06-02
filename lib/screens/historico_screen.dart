@@ -567,8 +567,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
                     children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
+                        ElevatedButton.icon(
                           onPressed: () async {
                             final selecionadosIndices = selecionados
                                 .asMap()
@@ -588,11 +587,9 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                           label: Text('Exportar (${selecionados.where((e) => e).length})'),
                           style: AppButtonStyle.primaryButton,
                         ),
-                      ),
                       const SizedBox(width: 10),
                       if (widget.isAdmin) // ✅ Só mostra para admins
-                        Expanded(
-                          child: ElevatedButton.icon(
+                          ElevatedButton.icon(
                             onPressed: () async {
                               final confirm = await showDialog<bool>(
                                 context: context,
@@ -633,7 +630,6 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                             label: Text('Excluir (${selecionados.where((e) => e).length})'),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                           ),
-                        ),
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () {

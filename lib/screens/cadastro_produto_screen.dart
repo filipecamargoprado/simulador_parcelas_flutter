@@ -642,18 +642,15 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                 runSpacing: 8,
                 alignment: WrapAlignment.center,
                 children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
+                    ElevatedButton.icon(
                       onPressed: exportarSelecionados,
                       icon: const Icon(Icons.download),
                       label: Text('Exportar (${selecionados.where((e) => e).length})'),
                       style: AppButtonStyle.primaryButton,
                     ),
-                  ),
                   const SizedBox(width: 10),
                   if (widget.isAdmin) // ✅ Apenas admins podem excluir
-                    Expanded(
-                      child: ElevatedButton.icon(
+                      ElevatedButton.icon(
                         onPressed: () async {
                           final confirm = await showDialog<bool>(
                             context: context,
@@ -704,7 +701,6 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                         label: Text('Excluir (${selecionados.where((e) => e).length})'),
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                       ),
-                    ),
                   const SizedBox(width: 10),
                   ElevatedButton.icon(
                     onPressed: toggleModoExportacao,

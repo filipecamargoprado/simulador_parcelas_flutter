@@ -107,7 +107,12 @@ class ApiService {
 
   // =================== PRODUTOS =====================
   static Future<List> getProdutos() async {
+    final url = Uri.parse('$baseUrl/historico');
+    print('🔗 URL: $url');
+    print('🪪 Headers: $headers');
     final res = await http.get(Uri.parse('$baseUrl/produtos'), headers: headers);
+    print('🔁 Status: ${res.statusCode}');
+    print('📦 Body: ${res.body}');
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Erro ao carregar produtos');
   }
@@ -140,7 +145,12 @@ class ApiService {
 
   // =================== USUÁRIOS =====================
   static Future<List> getUsuarios() async {
+    final url = Uri.parse('$baseUrl/historico');
+    print('🔗 URL: $url');
+    print('🪪 Headers: $headers');
     final res = await http.get(Uri.parse('$baseUrl/usuarios'), headers: headers);
+    print('🔁 Status: ${res.statusCode}');
+    print('📦 Body: ${res.body}');
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Erro ao carregar usuários');
   }
@@ -199,7 +209,12 @@ class ApiService {
 
   // =================== HISTÓRICO =====================
   static Future<List<Map<String, dynamic>>> getHistoricoSimulacoes() async {
+    final url = Uri.parse('$baseUrl/historico');
+    print('🔗 URL: $url');
+    print('🪪 Headers: $headers');
     final res = await http.get(Uri.parse('$baseUrl/historico'), headers: headers);
+    print('🔁 Status: ${res.statusCode}');
+    print('📦 Body: ${res.body}');
     if (res.statusCode == 200) {
       try {
         final dados = List<Map<String, dynamic>>.from(jsonDecode(res.body));
