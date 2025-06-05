@@ -7,7 +7,7 @@ import 'package:open_file/open_file.dart';
 import '../services/api_service.dart';
 import '../components/app_scaffold.dart';
 import '../utils/theme.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 List<Map<String, dynamic>> processarProdutos(dynamic rawList) {
   return List<Map<String, dynamic>>.from(rawList.whereType<Map<String, dynamic>>());
@@ -32,6 +32,7 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
   final modeloController = TextEditingController();
   final cmvController = TextEditingController();
   final buscaController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   int? editIndex;
   List<Map<String, dynamic>> produtos = [];
@@ -42,64 +43,59 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
 
   bool carregando = true;
 
-  final ScrollController scrollController = ScrollController();
   int paginaAtual = 1;
+  static const int itensPorPagina = 10;
+
   bool carregandoMais = false;
 
   @override
   void initState() {
     super.initState();
     buscaController.addListener(_filtrarProdutos);
-    scrollController.addListener(() {
-      if (scrollController.position.pixels >= scrollController.position.maxScrollExtent - 100) {
-        carregarMaisProdutos();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      carregarProdutos();
     });
-    Future.microtask(carregarProdutos);
-  }
-
-  Future<void> carregarMaisProdutos() async {
-    if (carregandoMais || carregando) return;
-
-    setState(() => carregandoMais = true);
-
-    try {
-      final novaListaBruta = await ApiService.getProdutos();
-      final novaListaConvertida = await compute(processarProdutos, novaListaBruta);
-
-      setState(() {
-        produtos.addAll(novaListaConvertida);
-        produtosOriginais.addAll(novaListaConvertida);
-        selecionados.addAll(List<bool>.filled(novaListaConvertida.length, false));
-        paginaAtual++;
-      });
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Erro ao carregar mais produtos.')),
-      );
-    } finally {
-      setState(() => carregandoMais = false);
-    }
   }
 
   Future<void> carregarProdutos() async {
-    setState(() => carregando = true);
+    if (!mounted) return;
+
+    debugPrint('[DEBUG] Início carregarProdutos');
+    setState(() {
+      carregando = true;
+      paginaAtual = 1;
+      produtos = [];
+      produtosOriginais = [];
+      selecionados = [];
+    });
 
     try {
-      final listaBruta = await ApiService.getProdutos();
-      final listaProcessada = await compute(processarProdutos, listaBruta);
+      final listaBruta = await ApiService.getProdutos().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Tempo de resposta excedido (10s)'),
+      );
+
+      final listaProcessada = List<Map<String, dynamic>>.from(listaBruta);
+
+      if (!mounted) return;
 
       setState(() {
         produtos = listaProcessada;
         produtosOriginais = List<Map<String, dynamic>>.from(listaProcessada);
         selecionados = List<bool>.filled(produtos.length, false);
+        carregando = false;
       });
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Erro ao carregar produtos.')),
-      );
-    } finally {
-      setState(() => carregando = false);
+
+      debugPrint('[DEBUG] Produtos recebidos: ${produtos.length}');
+      debugPrint('[DEBUG] Finalizando carregamento');
+    } catch (e, stack) {
+      debugPrint('[ERRO] Falha ao carregar produtos: $e\n$stack');
+      if (mounted) {
+        setState(() => carregando = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Erro ao carregar produtos.')),
+        );
+      }
     }
   }
 
@@ -183,61 +179,100 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: Text(isEdit ? 'Editar Produto' : 'Novo Produto'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: marcaController,
-                    decoration: InputDecoration(
-                      labelText: 'Marca',
-                      errorText: marcaInvalida ? 'Preencha a marca' : null,
+      builder: (_) => KeyboardListener(
+        focusNode: FocusNode()..requestFocus(),
+        onKeyEvent: (event) async {
+          if (event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+            final marca = marcaController.text.trim();
+            final modelo = modeloController.text.trim();
+            final cmvStr = cmvController.text.trim();
+            final cmv = double.tryParse(cmvStr);
+
+            final marcaErro = marca.isEmpty;
+            final modeloErro = modelo.isEmpty;
+            final cmvErro = cmv == null;
+
+            if (marcaErro || modeloErro || cmvErro) {
+              marcaInvalida = marcaErro;
+              modeloInvalido = modeloErro;
+              cmvInvalido = cmvErro;
+              return;
+            }
+
+            await executarComLoading(() async {
+              await salvarProduto(
+                context,
+                isEdit,
+                produto,
+                marcaController,
+                modeloController,
+                cmvController,
+                    (_) {},
+              );
+            });
+          }
+        },
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(isEdit ? 'Editar Produto' : 'Novo Produto'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: marcaController,
+                      decoration: InputDecoration(
+                        labelText: 'Marca',
+                        errorText: marcaInvalida ? 'Preencha a marca' : null,
+                      ),
+                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     ),
-                    onSubmitted: (_) {
-                      FocusScope.of(context).nextFocus();
-                    },
-                  ),
-                  TextField(
-                    controller: modeloController,
-                    decoration: InputDecoration(
-                      labelText: 'Modelo',
-                      errorText: modeloInvalido ? 'Preencha o modelo' : null,
+                    TextField(
+                      controller: modeloController,
+                      decoration: InputDecoration(
+                        labelText: 'Modelo',
+                        errorText: modeloInvalido ? 'Preencha o modelo' : null,
+                      ),
+                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     ),
-                    onSubmitted: (_) {
-                      FocusScope.of(context).nextFocus();
-                    },
-                  ),
-                  TextField(
-                    controller: cmvController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'CMV',
-                      errorText: cmvInvalido ? 'Informe um CMV válido' : null,
+                    TextField(
+                      controller: cmvController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'CMV',
+                        errorText: cmvInvalido ? 'Informe um CMV válido' : null,
+                      ),
                     ),
-                    onSubmitted: (_) async {
-                      final marca = marcaController.text.trim();
-                      final modelo = modeloController.text.trim();
-                      final cmvStr = cmvController.text.trim();
-                      final cmv = double.tryParse(cmvStr);
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final marca = marcaController.text.trim();
+                    final modelo = modeloController.text.trim();
+                    final cmvStr = cmvController.text.trim();
+                    final cmv = double.tryParse(cmvStr);
 
-                      final marcaErro = marca.isEmpty;
-                      final modeloErro = modelo.isEmpty;
-                      final cmvErro = cmv == null;
+                    final marcaErro = marca.isEmpty;
+                    final modeloErro = modelo.isEmpty;
+                    final cmvErro = cmv == null;
 
-                      setState(() {
-                        marcaInvalida = marcaErro;
-                        modeloInvalido = modeloErro;
-                        cmvInvalido = cmvErro;
-                      });
+                    setState(() {
+                      marcaInvalida = marcaErro;
+                      modeloInvalido = modeloErro;
+                      cmvInvalido = cmvErro;
+                    });
 
-                      if (marcaErro || modeloErro || cmvErro) {
-                        return;
-                      }
+                    if (marcaErro || modeloErro || cmvErro) return;
 
+                    await executarComLoading(() async {
                       await salvarProduto(
                         context,
                         isEdit,
@@ -247,52 +282,14 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                         cmvController,
                         setState,
                       );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  final marca = marcaController.text.trim();
-                  final modelo = modeloController.text.trim();
-                  final cmvStr = cmvController.text.trim();
-                  final cmv = double.tryParse(cmvStr);
-
-                  final marcaErro = marca.isEmpty;
-                  final modeloErro = modelo.isEmpty;
-                  final cmvErro = cmv == null;
-
-                  setState(() {
-                    marcaInvalida = marcaErro;
-                    modeloInvalido = modeloErro;
-                    cmvInvalido = cmvErro;
-                  });
-
-                  if (marcaErro || modeloErro || cmvErro) {
-                    return;
-                  }
-
-                  await salvarProduto(
-                    context,
-                    isEdit,
-                    produto,
-                    marcaController,
-                    modeloController,
-                    cmvController,
-                    setState,
-                  );
-                },
-                child: const Text('Salvar'),
-              ),
-            ],
-          );
-        },
+                    });
+                  },
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -328,8 +325,11 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
 
     if (confirm == true) {
       try {
-        await ApiService.excluirProduto(id);
-        await carregarProdutos();
+        await executarComLoading(() async {
+          await ApiService.excluirProduto(id);
+          await carregarProdutos();
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Produto excluído com sucesso')),
         );
@@ -371,35 +371,37 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
       return;
     }
 
-    final excel = Excel.createExcel();
-    const sheetName = 'Produtos';
-    final sheet = excel[sheetName];
+    await executarComLoading(() async {
+      final excel = Excel.createExcel();
+      const sheetName = 'Produtos';
+      final sheet = excel[sheetName];
 
-    sheet.appendRow([
-      TextCellValue('Marca'),
-      TextCellValue('Modelo'),
-      TextCellValue('CMV'),
-    ]);
-
-    for (var index in selecionadosIndices) {
-      final p = produtos[index];
       sheet.appendRow([
-        TextCellValue(p['marca'] ?? ''),
-        TextCellValue(p['modelo'] ?? ''),
-        TextCellValue(p['cmv'].toString()),
+        TextCellValue('Marca'),
+        TextCellValue('Modelo'),
+        TextCellValue('CMV'),
       ]);
-    }
 
-    // Remove abas extras
-    final sheetsToRemove = excel.sheets.keys.where((name) => name != sheetName).toList();
-    for (final name in sheetsToRemove) {
-      excel.delete(name);
-    }
+      for (var index in selecionadosIndices) {
+        final p = produtos[index];
+        sheet.appendRow([
+          TextCellValue(p['marca'] ?? ''),
+          TextCellValue(p['modelo'] ?? ''),
+          TextCellValue(p['cmv'].toString()),
+        ]);
+      }
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/produtos.xlsx');
-    await file.writeAsBytes(excel.encode()!);
-    await OpenFile.open(file.path);
+      // Remove abas extras
+      final sheetsToRemove = excel.sheets.keys.where((name) => name != sheetName).toList();
+      for (final name in sheetsToRemove) {
+        excel.delete(name);
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/produtos.xlsx');
+      await file.writeAsBytes(excel.encode()!);
+      await OpenFile.open(file.path);
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('✅ Exportação concluída com sucesso')),
@@ -415,100 +417,162 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
     );
 
     if (result != null) {
-      try {
-        final fileBytes = result.files.single.bytes;
-        final filePath = result.files.single.path;
+      await executarComLoading(() async {
+        try {
+          final fileBytes = result.files.single.bytes;
+          final filePath = result.files.single.path;
 
-        if (fileBytes == null && filePath == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Erro ao ler o arquivo')),
-          );
-          return;
-        }
-
-        final bytes = fileBytes ?? await File(filePath!).readAsBytes();
-        final excel = Excel.decodeBytes(bytes);
-
-        final sheet = excel.tables['Produtos'];
-        if (sheet == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Aba "Produtos" não encontrada no arquivo')),
-          );
-          return;
-        }
-
-        int atualizados = 0;
-        int inseridos = 0;
-        List<String> erros = [];
-
-        for (var row in sheet.rows.skip(1)) {
-          final marca = row[0]?.value.toString().trim() ?? '';
-          final modelo = row[1]?.value.toString().trim() ?? '';
-          final cmvStr = row[2]?.value.toString().trim() ?? '';
-
-          if (marca.isEmpty || modelo.isEmpty || cmvStr.isEmpty) {
-            erros.add('Linha incompleta -> Marca: $marca, Modelo: $modelo, CMV: $cmvStr');
-            continue;
-          }
-
-          final cmv = double.tryParse(cmvStr);
-          if (cmv == null) {
-            erros.add('CMV inválido no modelo $modelo');
-            continue;
-          }
-
-          try {
-            final existente = produtosOriginais.firstWhere(
-                  (p) => p['modelo'].toString().toLowerCase() == modelo.toLowerCase(),
-              orElse: () => {},
+          if (fileBytes == null && filePath == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('❌ Erro ao ler o arquivo')),
             );
-
-            if (existente.isNotEmpty) {
-              final id = existente['id'];
-              await ApiService.atualizarProduto(id, {
-                'marca': marca,
-                'modelo': modelo,
-                'cmv': cmv,
-              });
-              atualizados++;
-            } else {
-              await ApiService.salvarProduto({
-                'marca': marca,
-                'modelo': modelo,
-                'cmv': cmv,
-              });
-              inseridos++;
-            }
-          } catch (e) {
-            erros.add('Erro ao processar modelo $modelo');
+            return;
           }
+
+          final bytes = fileBytes ?? await File(filePath!).readAsBytes();
+          final excel = Excel.decodeBytes(bytes);
+
+          final sheet = excel.tables['Produtos'];
+          if (sheet == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('❌ Aba "Produtos" não encontrada no arquivo')),
+            );
+            return;
+          }
+
+          int atualizados = 0;
+          int inseridos = 0;
+          List<String> erros = [];
+
+          for (var row in sheet.rows.skip(1)) {
+            final marca = row[0]?.value.toString().trim() ?? '';
+            final modelo = row[1]?.value.toString().trim() ?? '';
+            final cmvStr = row[2]?.value.toString().trim() ?? '';
+
+            if (marca.isEmpty || modelo.isEmpty || cmvStr.isEmpty) {
+              erros.add('Linha incompleta -> Marca: $marca, Modelo: $modelo, CMV: $cmvStr');
+              continue;
+            }
+
+            final cmv = double.tryParse(cmvStr);
+            if (cmv == null) {
+              erros.add('CMV inválido no modelo $modelo');
+              continue;
+            }
+
+            try {
+              final existente = produtosOriginais.firstWhere(
+                    (p) => p['modelo'].toString().toLowerCase() == modelo.toLowerCase(),
+                orElse: () => {},
+              );
+
+              if (existente.isNotEmpty) {
+                final id = existente['id'];
+                await ApiService.atualizarProduto(id, {
+                  'marca': marca,
+                  'modelo': modelo,
+                  'cmv': cmv,
+                });
+                atualizados++;
+              } else {
+                await ApiService.salvarProduto({
+                  'marca': marca,
+                  'modelo': modelo,
+                  'cmv': cmv,
+                });
+                inseridos++;
+              }
+            } catch (_) {
+              erros.add('Erro ao processar modelo $modelo');
+            }
+          }
+
+          await carregarProdutos();
+          if (mounted) setState(() {});
+
+          String resumo = '✅ Importação concluída.\nInseridos: $inseridos, Atualizados: $atualizados.';
+          if (erros.isNotEmpty) {
+            resumo += '\n⚠️ Erros:\n${erros.join('\n')}';
+          }
+
+          // Salve o resumo antes do loading encerrar
+          String resumoFinal = resumo;
+
+// ⬇️ Mostra o popup após o loading ter fechado
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return KeyboardListener(
+                    focusNode: FocusNode()..requestFocus(),
+                    onKeyEvent: (event) {
+                      if (event.logicalKey == LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+                        Navigator.pop(context);
+                      }
+                    },
+                    child: AlertDialog(
+                      title: const Text('Resumo da Importação'),
+                      content: SingleChildScrollView(child: Text(resumo)),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Fechar'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+          });
+        } catch (_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Erro ao processar o arquivo')),
+          );
         }
+      });
+    }
+  }
 
-        await carregarProdutos();
+  Future<T> executarComLoading<T>(Future<T> Function() acao) async {
+    bool dialogAberto = false;
 
-        String resumo = '✅ Importação concluída. '
-            'Inseridos: $inseridos, Atualizados: $atualizados.';
-        if (erros.isNotEmpty) {
-          resumo += '\nErros:\n${erros.join('\n')}';
-        }
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) {
+          dialogAberto = true;
+          return const Dialog(
+            backgroundColor: Colors.transparent,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        },
+      );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resumo)),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Erro ao processar o arquivo')),
-        );
+      final resultado = await acao();
+
+      return resultado;
+    } catch (e) {
+      rethrow;
+    } finally {
+      if (dialogAberto && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // ✅ fecha o loading corretamente
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    print('[DEBUG] BUILD - carregando: $carregando | produtos: ${produtos.length}');
+    final int totalPaginas = (produtos.length / itensPorPagina).ceil();
+    final int indiceInicio = (paginaAtual - 1) * itensPorPagina;
+    final int indiceFim = (indiceInicio + itensPorPagina).clamp(0, produtos.length);
+    final produtosPaginados = produtos.sublist(indiceInicio, indiceFim);
     return AppScaffold(
       title: 'Cadastro de Produto',
-      isAdmin: widget.isAdmin,
-      usuario: widget.usuario,
       child: Column(
         children: [
           Padding(
@@ -560,17 +624,14 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
           Expanded(
             child: carregando
                 ? const Center(child: CircularProgressIndicator())
+                : produtos.isEmpty
+                ? const Center(child: Text('Nenhum produto encontrado'))
                 : ListView.builder(
-              controller: scrollController,
-              itemCount: produtos.length + (carregandoMais ? 1 : 0),
+              controller: _scrollController,
+              itemCount: produtosPaginados.length,
               itemBuilder: (context, index) {
-                if (index == produtos.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                final p = produtos[index];
+                final p = produtosPaginados[index];
+                final globalIndex = indiceInicio + index;
 
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -578,10 +639,10 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                   child: ListTile(
                     leading: modoExportacao
                         ? Checkbox(
-                      value: selecionados[index],
+                      value: selecionados[globalIndex],
                       onChanged: (v) {
                         setState(() {
-                          selecionados[index] = v ?? false;
+                          selecionados[globalIndex] = v ?? false;
                           todosSelecionados = selecionados.every((e) => e);
                         });
                       },
@@ -598,7 +659,7 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete),
-                          onPressed: () => excluirProduto(index),
+                          onPressed: () => excluirProduto(globalIndex),
                         ),
                       ],
                     ),
@@ -607,6 +668,33 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
               },
             ),
           ),
+          if (produtos.length > itensPorPagina)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed: paginaAtual > 1
+                            ? () => setState(() => paginaAtual--)
+                            : null,
+                      ),
+                      Text('Página $paginaAtual de $totalPaginas'),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: paginaAtual < totalPaginas
+                            ? () => setState(() => paginaAtual++)
+                            : null,
+                      ),
+                    ],
+                  ),
+                  Text('Total: ${produtos.length} registros'),
+                ],
+              ),
+            ),
           if (modoExportacao)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -653,30 +741,32 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                           );
 
                           if (confirm == true) {
-                            final indices = selecionados
-                                .asMap()
-                                .entries
-                                .where((e) => e.value)
-                                .map((e) => e.key)
-                                .toList();
+                            await executarComLoading(() async {
+                              final indices = selecionados
+                                  .asMap()
+                                  .entries
+                                  .where((e) => e.value)
+                                  .map((e) => e.key)
+                                  .toList();
 
-                            int excluidos = 0;
+                              int excluidos = 0;
 
-                            for (final i in indices) {
-                              final id = produtos[i]['id'];
-                              try {
-                                await ApiService.excluirProduto(id);
-                                excluidos++;
-                              } catch (_) {}
-                            }
+                              for (final i in indices) {
+                                final id = produtos[i]['id'];
+                                try {
+                                  await ApiService.excluirProduto(id);
+                                  excluidos++;
+                                } catch (_) {}
+                              }
 
-                            await carregarProdutos();
+                              await carregarProdutos();
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('✅ $excluidos produto(s) excluído(s).')),
-                            );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('✅ $excluidos produto(s) excluído(s).')),
+                              );
 
-                            toggleModoExportacao();
+                              toggleModoExportacao();
+                            });
                           }
                         },
                         icon: const Icon(Icons.delete_forever),

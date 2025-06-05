@@ -9,14 +9,7 @@ import '../utils/theme.dart';
 import 'package:open_file/open_file.dart';
 
 class HistoricoScreen extends StatefulWidget {
-  final bool isAdmin;
-  final Map<String, dynamic> usuario;
-
-  const HistoricoScreen({
-    super.key,
-    required this.isAdmin,
-    required this.usuario,
-  });
+  const HistoricoScreen({super.key});
 
   @override
   State<HistoricoScreen> createState() => _HistoricoScreenState();
@@ -382,16 +375,35 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
 
     if (confirmar != true) return;
 
+    final indices = selecionados
+        .asMap()
+        .entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+
     int excluidos = 0;
-    for (final i in indicesSelecionados) {
+    for (final i in indices) {
       final id = filtrado[i]['id'];
+      if (id == null || id is! int) {
+        print('⚠️ ID inválido: $id');
+        continue;
+      }
+
       try {
         await ApiService.excluirSimulacao(id);
         excluidos++;
-      } catch (_) {
-        // Ignora erros individuais e continua
+      } catch (e) {
+        print('❌ Erro ao excluir ID $id: $e');
       }
     }
+
+    await _carregarHistorico();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('✅ $excluidos simulação(ões) excluída(s).')),
+    );
+
+    setState(() => modoExportacao = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('✅ $excluidos simulação(ões) excluída(s).')),
@@ -408,8 +420,6 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Histórico de Simulações',
-      isAdmin: widget.isAdmin,
-      usuario: widget.usuario,
       child: Column(
         children: [
           Padding(
@@ -436,7 +446,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                     });
                   },
                   icon: const Icon(Icons.checklist),
-                  label: Text(modoExportacao ? 'Cancelar Seleção' : 'Selecionar Simulações'),
+                  label: Text(modoExportacao ? 'Selecionar Simulações' : 'Selecionar Simulações'),
                   style: AppButtonStyle.primaryButton,
                 ),
               ],
@@ -588,7 +598,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                           style: AppButtonStyle.primaryButton,
                         ),
                       const SizedBox(width: 10),
-                      if (widget.isAdmin) // ✅ Só mostra para admins
+                      if (ApiService.isAdmin) // ✅ Só mostra para admins
                           ElevatedButton.icon(
                             onPressed: () async {
                               final confirm = await showDialog<bool>(

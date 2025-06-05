@@ -10,12 +10,12 @@ import 'package:simulador_parcelas_jufap/screens/perfil_screen.dart';
 import 'package:simulador_parcelas_jufap/screens/simulacao_screen.dart';
 import 'package:simulador_parcelas_jufap/screens/alterar_senha_obrigatoria_screen.dart';
 import 'package:simulador_parcelas_jufap/services/api_service.dart';
+import 'package:simulador_parcelas_jufap/components/protegido_por_admin.dart';
 import 'package:simulador_parcelas_jufap/utils/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
-  //await GetStorage().erase(); // ⚠️ Limpa todos os dados salvos (NÃO USAR EM PRODUÇÃO)
   await dotenv.load(fileName: '.env');
   await ApiService.init();
   runApp(const MyApp());
@@ -37,18 +37,19 @@ class MyApp extends StatelessWidget {
           usuario: ApiService.usuarioLogado!,
           isAdmin: ApiService.isAdmin,
         ),
-        '/cadastro-produto': (_) => CadastroProdutoScreen(
-          usuario: ApiService.usuarioLogado!,
-          isAdmin: ApiService.isAdmin,
+        '/cadastro-produto': (_) => ProtegidoPorAdmin(
+          child: CadastroProdutoScreen(
+            usuario: ApiService.usuarioLogado!,
+            isAdmin: ApiService.isAdmin,
+          ),
         ),
-        '/cadastro-usuario': (_) => CadastroUsuarioScreen(
-          usuario: ApiService.usuarioLogado!,
-          isAdmin: ApiService.isAdmin,
+        '/cadastro-usuario': (_) => ProtegidoPorAdmin(
+          child: CadastroUsuarioScreen(
+            usuario: ApiService.usuarioLogado!,
+            isAdmin: ApiService.isAdmin,
+          ),
         ),
-        '/historico': (_) => HistoricoScreen(
-          usuario: ApiService.usuarioLogado!,
-          isAdmin: ApiService.isAdmin,
-        ),
+        '/historico': (_) => const HistoricoScreen(),
         '/perfil': (_) => PerfilScreen(
           usuario: ApiService.usuarioLogado!,
           isAdmin: ApiService.isAdmin,

@@ -3,15 +3,24 @@ import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 class ApiService {
   static final String baseUrl = dotenv.env['API_URL'] ?? 'https://simulador.grupojufap.com.br/';
   static final _box = GetStorage();
 
   static String? _token;
-  static Map<String, dynamic>? usuarioLogado;
+  static final ValueNotifier<Map<String, dynamic>?> usuarioLogadoNotifier = ValueNotifier(null);
+
+  static Map<String, dynamic>? get usuarioLogado => usuarioLogadoNotifier.value;
+
+  static set usuarioLogado(Map<String, dynamic>? value) {
+    usuarioLogadoNotifier.value = value;
+    _box.write('usuario', value);
+  }
 
   static bool get isAdmin => usuarioLogado?['is_admin'] == 1;
+  static bool get isSuperAdmin => usuarioLogado?['is_super_admin'] == 1;
   static bool get isLogado => _token != null && usuarioLogado != null;
   static bool get precisaAlterarSenha => usuarioLogado?['precisa_alterar_senha'] == 1;
 
@@ -26,11 +35,45 @@ class ApiService {
     ),
   );
 
+  //recarrega os dados do usuário a qualquer momento
+  static Future<void> atualizarDadosUsuarioLogado() async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/usuario-logado'),
+        headers: headers,
+      );
+
+      if (res.statusCode == 200) {
+        usuarioLogado = Map<String, dynamic>.from(json.decode(res.body));
+      }
+    } catch (e) {
+      print('Erro ao atualizar usuário logado: $e');
+    }
+  }
+
   // 🔥 Inicializa dados locais
   static Future<void> init() async {
     _token = _box.read('token');
-    usuarioLogado = _box.read('usuario');
+
+    final usuarioLido = _box.read('usuario');
+    if (usuarioLido is Map<String, dynamic>) {
+      usuarioLogadoNotifier.value = Map<String, dynamic>.from(usuarioLido);
+    } else {
+      usuarioLogadoNotifier.value = null;
+    }
+
     dio.options.headers['Authorization'] = _token != null ? 'Bearer $_token' : null;
+    dio.interceptors.add(InterceptorsWrapper(
+      onError: (DioError e, ErrorInterceptorHandler handler) async {
+        if (e.response?.statusCode == 401) {
+          print('⚠️ Token expirado ou inválido, forçando logout.');
+          await logout();
+        }
+        return handler.next(e);
+      },
+    ));
+
+
     print('🗂️ Token carregado: $_token');
     print('👤 Usuário carregado: $usuarioLogado');
     print('🌐 API_URL: $baseUrl');
@@ -58,29 +101,41 @@ class ApiService {
     try {
       await logout();
 
+      final url = Uri.parse('$baseUrl/login');
+      print('📲 Enviando login para $url');
+      print('📨 Email: $email | Senha: $senha');
+
       final res = await http.post(
-        Uri.parse('$baseUrl/login'),
+        url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'senha': senha}),
       );
+
+      print('📡 Status: ${res.statusCode}');
+      print('📥 Body: ${res.body}');
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
         if (data['token'] != null && data['usuario'] != null) {
           _token = data['token'];
-          usuarioLogado = {
+          usuarioLogadoNotifier.value = {
             'id': data['usuario']['id'],
             'nome': data['usuario']['nome'],
             'email': data['usuario']['email'],
             'is_admin': data['usuario']['is_admin'],
+            'is_super_admin': data['usuario']['is_super_admin'],
             'precisa_alterar_senha': data['usuario']['precisa_alterar_senha'] ?? 0,
           };
 
           await _salvarLocal();
           dio.options.headers['Authorization'] = 'Bearer $_token';
+          await atualizarDadosUsuarioLogado();
           return true;
         }
+      } else {
+        // Caso tenha erro (como email/senha inválido), mostrar no terminal
+        print('❌ Erro ao fazer login: ${res.body}');
       }
 
       return false;
@@ -93,7 +148,7 @@ class ApiService {
   // 🚪 Logout
   static Future<void> logout() async {
     _token = null;
-    usuarioLogado = null;
+    usuarioLogadoNotifier.value = null;
     await _box.erase();
     dio.options.headers.remove('Authorization');
     print('🚪 Logout realizado com sucesso');
@@ -144,15 +199,17 @@ class ApiService {
   }
 
   // =================== USUÁRIOS =====================
-  static Future<List> getUsuarios() async {
-    final url = Uri.parse('$baseUrl/historico');
-    print('🔗 URL: $url');
-    print('🪪 Headers: $headers');
-    final res = await http.get(Uri.parse('$baseUrl/usuarios'), headers: headers);
-    print('🔁 Status: ${res.statusCode}');
-    print('📦 Body: ${res.body}');
-    if (res.statusCode == 200) return jsonDecode(res.body);
-    throw Exception('Erro ao carregar usuários');
+  static Future<List<dynamic>> getUsuarios({int pagina = 1, int limite = 50}) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/usuarios?pagina=$pagina&limite=$limite'),
+      headers: headers,
+    );
+
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    } else {
+      throw Exception('Erro ao carregar usuários');
+    }
   }
 
   static Future<void> salvarUsuario(Map<String, dynamic> usuario) async {

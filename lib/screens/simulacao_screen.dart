@@ -236,8 +236,6 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Simulação de Parcelas',
-      isAdmin: widget.isAdmin,
-      usuario: widget.usuario,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

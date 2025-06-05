@@ -79,8 +79,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
     return AppScaffold(
       title: 'Meu Perfil',
-      isAdmin: widget.isAdmin,
-      usuario: usuario,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
