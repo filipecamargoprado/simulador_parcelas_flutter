@@ -19,8 +19,6 @@ class ApiService {
     _box.write('usuario', value);
   }
 
-  static bool get isAdmin => usuarioLogado?['is_admin'] == 1;
-  static bool get isSuperAdmin => usuarioLogado?['is_super_admin'] == 1;
   static bool get isLogado => _token != null && usuarioLogado != null;
   static bool get precisaAlterarSenha => usuarioLogado?['precisa_alterar_senha'] == 1;
 
@@ -34,6 +32,16 @@ class ApiService {
       },
     ),
   );
+
+  static bool get isAdmin {
+    final u = usuarioLogadoNotifier.value;
+    return u?['is_admin'] == 1 || u?['is_super_admin'] == 1;
+  }
+
+  static bool get isSuperAdmin {
+    final u = usuarioLogadoNotifier.value;
+    return u?['is_super_admin'] == 1;
+  }
 
   //recarrega os dados do usuário a qualquer momento
   static Future<void> atualizarDadosUsuarioLogado() async {
@@ -119,14 +127,16 @@ class ApiService {
 
         if (data['token'] != null && data['usuario'] != null) {
           _token = data['token'];
-          usuarioLogadoNotifier.value = {
-            'id': data['usuario']['id'],
-            'nome': data['usuario']['nome'],
-            'email': data['usuario']['email'],
-            'is_admin': data['usuario']['is_admin'],
-            'is_super_admin': data['usuario']['is_super_admin'],
-            'precisa_alterar_senha': data['usuario']['precisa_alterar_senha'] ?? 0,
-          };
+          //usuarioLogadoNotifier.value = {
+           //'id': data['usuario']['id'],
+            //'nome': data['usuario']['nome'],
+            //'email': data['usuario']['email'],
+            //'is_admin': data['usuario']['is_admin'],
+            //'is_super_admin': data['usuario']['is_super_admin'],
+            //'precisa_alterar_senha': data['usuario']['precisa_alterar_senha'] ?? 0,
+          //};
+          await atualizarDadosUsuarioLogado();
+
 
           await _salvarLocal();
           dio.options.headers['Authorization'] = 'Bearer $_token';
@@ -216,7 +226,13 @@ class ApiService {
     final res = await http.post(
       Uri.parse('$baseUrl/usuarios'),
       headers: headers,
-      body: jsonEncode(usuario),
+      body: jsonEncode({
+        'nome': usuario['nome'],
+        'email': usuario['email'],
+        'senha': usuario['senha'],
+        'is_admin': usuario['is_admin'],
+        'is_super_admin': usuario['is_super_admin'] ?? 0,
+      }),
     );
     if (res.statusCode != 201) throw Exception('Erro ao salvar usuário');
   }
@@ -225,7 +241,14 @@ class ApiService {
     final res = await http.put(
       Uri.parse('$baseUrl/usuarios/$id'),
       headers: headers,
-      body: jsonEncode(usuario),
+      body: jsonEncode({
+        'nome': usuario['nome'],
+        'email': usuario['email'],
+        'senha': usuario['senha'], // pode ser null ou vazio
+        'is_admin': usuario['is_admin'],
+        'is_super_admin': usuario['is_super_admin'] ?? 0,
+        'precisa_alterar_senha': usuario['precisa_alterar_senha'] ?? 0,
+      }),
     );
     if (res.statusCode != 200) throw Exception('Erro ao atualizar usuário');
   }

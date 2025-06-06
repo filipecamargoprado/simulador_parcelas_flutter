@@ -719,7 +719,7 @@ class _CadastroProdutoScreenState extends State<CadastroProdutoScreen> {
                       style: AppButtonStyle.primaryButton,
                     ),
                   const SizedBox(width: 10),
-                  if (widget.isAdmin) // ✅ Apenas admins podem excluir
+                  if (ApiService.isAdmin) // ✅ Apenas admins podem excluir
                       ElevatedButton.icon(
                         onPressed: () async {
                           final confirm = await showDialog<bool>(

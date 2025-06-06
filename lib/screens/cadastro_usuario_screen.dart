@@ -20,11 +20,13 @@ class CadastroUsuarioScreen extends StatefulWidget {
 
   final Map<String, dynamic> usuario;
   final bool isAdmin;
+  final bool isSuperAdmin;
 
   const CadastroUsuarioScreen({
     super.key,
     required this.usuario,
     required this.isAdmin,
+    required this.isSuperAdmin,
   });
 
   @override
@@ -112,6 +114,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
 // }
 
   Future<void> carregarUsuarios() async {
+    debugPrint('🔄 Chamou carregarUsuarios()');
     setState(() {
       carregando = true;
       paginaAtual = 1;
@@ -131,7 +134,9 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
 
       setState(() {
         usuarios = List<Map<String, dynamic>>.from(listaConvertida)
-          ..sort((a, b) => a['nome'].toString().toLowerCase().compareTo(b['nome'].toString().toLowerCase()));
+          ..sort((a, b) =>
+              a['nome'].toString().toLowerCase().compareTo(
+                  b['nome'].toString().toLowerCase()));
 
         usuariosOriginais = List<Map<String, dynamic>>.from(usuarios);
         selecionados = List<bool>.filled(usuarios.length, false);
@@ -140,7 +145,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
       print('❌ Erro ao carregar usuários: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Erro ao carregar usuários: ${e.toString()}')),
+          SnackBar(
+              content: Text('❌ Erro ao carregar usuários: ${e.toString()}')),
         );
       }
     } finally {
@@ -190,7 +196,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
 
     if (selecionadosIndices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Nenhum usuário selecionado para exportação')),
+        const SnackBar(
+            content: Text('⚠️ Nenhum usuário selecionado para exportação')),
       );
       return;
     }
@@ -207,7 +214,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
       ]);
 
       // Remove abas extras (como "Sheet1")
-      final sheetsToRemove = excel.sheets.keys.where((name) => name != sheetName).toList();
+      final sheetsToRemove = excel.sheets.keys.where((name) =>
+      name != sheetName).toList();
       for (final name in sheetsToRemove) {
         excel.delete(name);
       }
@@ -217,7 +225,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
         sheet.appendRow([
           TextCellValue(u['nome'] ?? ''),
           TextCellValue(u['email'] ?? ''),
-          TextCellValue((u['is_admin'] == 1 || u['is_admin'] == true) ? '1' : '0'),
+          TextCellValue(
+              (u['is_admin'] == 1 || u['is_admin'] == true) ? '1' : '0'),
         ]);
       }
 
@@ -277,13 +286,19 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
       List<Future<void>> tarefas = [];
 
       for (var row in sheet.rows.skip(1)) {
-        if (row.every((cell) => cell == null || cell.value.toString().trim().isEmpty)) {
+        if (row.every((cell) =>
+        cell == null || cell.value
+            .toString()
+            .trim()
+            .isEmpty)) {
           continue;
         }
 
         final nome = row[0]?.value.toString().trim() ?? '';
         final email = row[1]?.value.toString().trim().toLowerCase() ?? '';
-        final adminValue = row.length > 2 ? row[2]?.value.toString().trim() : '0';
+        final adminValue = row.length > 2
+            ? row[2]?.value.toString().trim()
+            : '0';
         final isAdmin = adminValue == '1';
 
         if (nome.isEmpty || email.isEmpty) {
@@ -343,25 +358,27 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     if (context.mounted) {
       showDialog(
         context: context,
-        builder: (context) => KeyboardListener(
-          focusNode: FocusNode()..requestFocus(),
-          onKeyEvent: (event) {
-            if (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-              Navigator.pop(context);
-            }
-          },
-          child: AlertDialog(
-            title: const Text('Resumo da Importação'),
-            content: SingleChildScrollView(child: Text(resumo)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Fechar'),
+        builder: (context) =>
+            KeyboardListener(
+              focusNode: FocusNode()
+                ..requestFocus(),
+              onKeyEvent: (event) {
+                if (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+                  Navigator.pop(context);
+                }
+              },
+              child: AlertDialog(
+                title: const Text('Resumo da Importação'),
+                content: SingleChildScrollView(child: Text(resumo)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Fechar'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       );
     }
   }
@@ -370,11 +387,14 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     final nomeController = TextEditingController(text: usuario['nome']);
     final emailController = TextEditingController(text: usuario['email']);
     final senhaController = TextEditingController();
-    bool isAdmin = usuario['is_admin'] == 1 || usuario['is_admin'] == true;
 
     bool nomeInvalido = false;
     bool emailInvalido = false;
     bool senhaInvalida = false;
+
+    bool isAdmin = usuario['is_admin'] == 1 || usuario['is_admin'] == true;
+    bool isSuperAdmin = usuario['is_super_admin'] == 1 ||
+        usuario['is_super_admin'] == true;
 
     Future<void> salvar() async {
       final nome = nomeController.text.trim();
@@ -387,7 +407,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
       bool senhaErro = false;
       if (senha.isNotEmpty) {
         final hasUppercase = senha.contains(RegExp(r'[A-Z]'));
-        final hasSpecialChar = senha.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+        final hasSpecialChar = senha.contains(
+            RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
         senhaErro = senha.length < 4 || !hasUppercase || !hasSpecialChar;
       }
 
@@ -404,31 +425,34 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
         'nome': nome,
         'email': email,
         'is_admin': isAdmin ? 1 : 0,
+        'is_super_admin': isSuperAdmin ? 1 : 0,
       };
 
       if (senha.isNotEmpty) {
         user['senha'] = senha;
+        user['precisa_alterar_senha'] = 1;
       }
+
+      print('📤 Enviando atualização: $user');
 
       try {
         await executarComLoading(() async {
           final id = usuario['id'];
+          print('🧪 Atualizando usuário ID: ${usuario['id']} com dados: $user');
           await ApiService.atualizarUsuario(id, user);
           await carregarUsuarios();
 
-          if (ApiService.usuarioLogadoNotifier.value?['id'] == id) {
+          if (ApiService.usuarioLogadoNotifier.value?['id'].toString() ==
+              id.toString()) {
             await ApiService.atualizarDadosUsuarioLogado();
-            ApiService.usuarioLogadoNotifier.value = Map<String, dynamic>.from(ApiService.usuarioLogado!);
+            ApiService.usuarioLogado = Map<String, dynamic>.from(ApiService.usuarioLogado ?? {});
 
             if (context.mounted) {
-              final novoIsAdmin = ApiService.usuarioLogado?['is_admin'] == 1;
-
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  novoIsAdmin ? '/cadastro-usuario' : '/simulacao',
-                      (route) => false,
-                );
-              });
+              final rotaAtual = ModalRoute
+                  .of(context)
+                  ?.settings
+                  .name ?? '/simulacao';
+              Navigator.of(context).pushReplacementNamed(rotaAtual);
             }
           }
         });
@@ -438,7 +462,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✅ Usuário atualizado com sucesso')),
         );
-      } catch (_) {
+      } catch (e) {
+        print('❌ Erro ao atualizar: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('❌ Erro ao atualizar usuário')),
         );
@@ -448,87 +473,101 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => KeyboardListener(
-        focusNode: FocusNode()..requestFocus(),
-        onKeyEvent: (event) {
-          if (event.logicalKey == LogicalKeyboardKey.enter ||
-              event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-            salvar();
-          }
-        },
-        child: StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Editar Usuário'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nomeController,
-                      decoration: InputDecoration(
-                        labelText: 'Nome',
-                        errorText: nomeInvalido ? 'Preencha o nome' : null,
-                      ),
-                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        errorText: emailInvalido ? 'Email inválido' : null,
-                      ),
-                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                    ),
-                    TextField(
-                      controller: senhaController,
-                      obscureText: !senhaVisivel,
-                      decoration: InputDecoration(
-                        labelText: 'Nova Senha (opcional)',
-                        errorText: senhaInvalida
-                            ? 'Senha fraca (mín. 4, 1 maiúscula, 1 especial)'
-                            : null,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            senhaVisivel ? Icons.visibility : Icons.visibility_off,
+      builder: (_) =>
+          KeyboardListener(
+            focusNode: FocusNode()
+              ..requestFocus(),
+            onKeyEvent: (event) {
+              if (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+                salvar();
+              }
+            },
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return AlertDialog(
+                  title: const Text('Editar Usuário'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: nomeController,
+                          decoration: InputDecoration(
+                            labelText: 'Nome',
+                            errorText: nomeInvalido ? 'Preencha o nome' : null,
                           ),
-                          onPressed: () => setState(() {
-                            senhaVisivel = !senhaVisivel;
-                          }),
                         ),
-                      ),
+                        TextField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            errorText: emailInvalido ? 'Email inválido' : null,
+                          ),
+                        ),
+                        TextField(
+                          controller: senhaController,
+                          obscureText: !senhaVisivel,
+                          decoration: InputDecoration(
+                            labelText: 'Nova Senha (opcional)',
+                            errorText: senhaInvalida
+                                ? 'Senha fraca (mín. 4, 1 maiúscula, 1 especial)'
+                                : null,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                senhaVisivel ? Icons.visibility : Icons
+                                    .visibility_off,
+                              ),
+                              onPressed: () =>
+                                  setState(() {
+                                    senhaVisivel = !senhaVisivel;
+                                  }),
+                            ),
+                          ),
+                        ),
+                        if (ApiService.isSuperAdmin)
+                          CheckboxListTile(
+                            title: const Text('Administrador'),
+                            value: isAdmin,
+                            onChanged: (v) =>
+                                setState(() {
+                                  isAdmin = v ?? false;
+                                }),
+                          ),
+                        if (ApiService.isSuperAdmin)
+                          CheckboxListTile(
+                            title: const Text('Super Admin'),
+                            value: isSuperAdmin,
+                            onChanged: (v) =>
+                                setState(() {
+                                  isSuperAdmin = v ?? false;
+                                }),
+                          ),
+                      ],
                     ),
-                    CheckboxListTile(
-                      title: const Text('Administrador'),
-                      value: isAdmin,
-                      onChanged: (v) => setState(() {
-                        isAdmin = v ?? false;
-                      }),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancelar'),
+                    ),
+                    TextButton(
+                      onPressed: salvar,
+                      child: const Text('Salvar'),
                     ),
                   ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                TextButton(
-                  onPressed: salvar,
-                  child: const Text('Salvar'),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+                );
+              },
+            ),
+          ),
     );
   }
 
   void excluirUsuario(int index) async {
     if (!ApiService.isSuperAdmin) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Apenas Super Admin pode excluir usuários.')),
+        const SnackBar(
+            content: Text('⚠️ Apenas Super Admin pode excluir usuários.')),
       );
       return;
     }
@@ -537,20 +576,21 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Excluir Usuário'),
-        content: const Text('Deseja realmente excluir este usuário?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+      builder: (_) =>
+          AlertDialog(
+            title: const Text('Excluir Usuário'),
+            content: const Text('Deseja realmente excluir este usuário?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Excluir'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Excluir'),
-          ),
-        ],
-      ),
     );
 
     if (confirm == true) {
@@ -576,6 +616,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     final emailController = TextEditingController();
     final senhaController = TextEditingController();
     bool isAdmin = false;
+    bool isSuperAdmin = false;
 
     bool nomeInvalido = false;
     bool emailInvalido = false;
@@ -608,6 +649,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
             'email': email,
             'senha': senha,
             'is_admin': isAdmin ? 1 : 0,
+            'is_super_admin': isSuperAdmin ? 1 : 0,
           });
           await carregarUsuarios();
         });
@@ -627,311 +669,386 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => KeyboardListener(
-        focusNode: FocusNode()..requestFocus(),
-        onKeyEvent: (event) {
-          if (event.logicalKey == LogicalKeyboardKey.enter ||
-              event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-            salvar();
-          }
-        },
-        child: StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Novo Usuário'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nomeController,
-                      decoration: InputDecoration(
-                        labelText: 'Nome',
-                        errorText: nomeInvalido ? 'Preencha o nome' : null,
-                      ),
-                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                    ),
-                    TextField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        errorText: emailInvalido ? 'Email inválido' : null,
-                      ),
-                      onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-                    ),
-                    TextField(
-                      controller: senhaController,
-                      obscureText: !senhaVisivel,
-                      decoration: InputDecoration(
-                        labelText: 'Senha',
-                        errorText: senhaInvalida
-                            ? 'Senha fraca (mín. 4, 1 maiúscula, 1 especial)'
-                            : null,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            senhaVisivel ? Icons.visibility : Icons.visibility_off,
+      builder: (_) =>
+          KeyboardListener(
+            focusNode: FocusNode()
+              ..requestFocus(),
+            onKeyEvent: (event) {
+              if (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+                salvar();
+              }
+            },
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return AlertDialog(
+                  title: const Text('Novo Usuário'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: nomeController,
+                          decoration: InputDecoration(
+                            labelText: 'Nome',
+                            errorText: nomeInvalido ? 'Preencha o nome' : null,
                           ),
-                          onPressed: () {
-                            setState(() {
-                              senhaVisivel = !senhaVisivel;
-                            });
-                          },
+                          onSubmitted: (_) =>
+                              FocusScope
+                                  .of(context)
+                                  .nextFocus(),
                         ),
-                      ),
+                        TextField(
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            errorText: emailInvalido ? 'Email inválido' : null,
+                          ),
+                          onSubmitted: (_) =>
+                              FocusScope
+                                  .of(context)
+                                  .nextFocus(),
+                        ),
+                        TextField(
+                          controller: senhaController,
+                          obscureText: !senhaVisivel,
+                          decoration: InputDecoration(
+                            labelText: 'Senha',
+                            errorText: senhaInvalida
+                                ? 'Senha fraca (mín. 4, 1 maiúscula, 1 especial)'
+                                : null,
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                senhaVisivel ? Icons.visibility : Icons
+                                    .visibility_off,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  senhaVisivel = !senhaVisivel;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        if (ApiService.isSuperAdmin)
+                          CheckboxListTile(
+                            title: const Text('Administrador'),
+                            value: isAdmin,
+                            onChanged: (v) =>
+                                setState(() {
+                                  isAdmin = v ?? false;
+                                }),
+                          ),
+                        if (ApiService.isSuperAdmin)
+                          CheckboxListTile(
+                            title: const Text('Super Admin'),
+                            value: isSuperAdmin,
+                            onChanged: (v) =>
+                                setState(() {
+                                  isSuperAdmin = v ?? false;
+                                }),
+                          ),
+                      ],
                     ),
-                    CheckboxListTile(
-                      title: const Text('Administrador'),
-                      value: isAdmin,
-                      onChanged: (v) => setState(() {
-                        isAdmin = v ?? false;
-                      }),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancelar'),
+                    ),
+                    TextButton(
+                      onPressed: salvar,
+                      child: const Text('Salvar'),
                     ),
                   ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                TextButton(
-                  onPressed: salvar,
-                  child: const Text('Salvar'),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+                );
+              },
+            ),
+          ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const int itensPorPagina = 10;
-    final int totalPaginas = (usuarios.length / itensPorPagina).ceil();
-    final int indiceInicio = (paginaAtual - 1) * itensPorPagina;
-    final int indiceFim = (indiceInicio + itensPorPagina).clamp(0, usuarios.length);
+    return ValueListenableBuilder<Map<String, dynamic>?>(
+      valueListenable: ApiService.usuarioLogadoNotifier,
+      builder: (context, usuario, _) {
+        final bool temPermissao = usuario?['is_admin'] == 1 ||
+            usuario?['is_super_admin'] == 1;
 
-    final usuariosPaginados = usuarios.sublist(indiceInicio, indiceFim);
+        // ✅ Se perdeu permissão, redireciona imediatamente
+        if (!temPermissao) {
+          Future.microtask(() {
+            if (ModalRoute
+                .of(context)
+                ?.isCurrent == true) {
+              Navigator.of(context).pushReplacementNamed('/simulacao');
+            }
+          });
+          return const SizedBox();
+        }
 
-    return AppScaffold(
-      title: 'Cadastro de Usuário',
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Column(
-              children: [
-                Row(
+        const int itensPorPagina = 10;
+        final int totalPaginas = (usuarios.length / itensPorPagina).ceil();
+        final int indiceInicio = (paginaAtual - 1) * itensPorPagina;
+        final int indiceFim = (indiceInicio + itensPorPagina).clamp(
+            0, usuarios.length);
+
+        final usuariosPaginados = usuarios.sublist(indiceInicio, indiceFim);
+
+        return AppScaffold(
+          title: 'Cadastro de Usuário',
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 16),
+                child: Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: buscaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Buscar Usuário',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _criarNovoUsuario,
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('Novo Usuário'),
-                      style: AppButtonStyle.primaryButton,
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: importarUsuarios,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Importar'),
-                      style: AppButtonStyle.primaryButton,
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: toggleModoExportacao,
-                      icon: const Icon(Icons.checklist),
-                      label: const Text('Selecionar Usuários'),
-                      style: AppButtonStyle.primaryButton,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: carregando
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-              itemCount: usuariosPaginados.length,
-              itemBuilder: (context, index) {
-                final u = usuariosPaginados[index];
-                final isAdmin = u['is_admin'] == 1 || u['is_admin'] == true;
-                final globalIndex = indiceInicio + index;
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  child: ListTile(
-                    leading: modoExportacao
-                        ? Checkbox(
-                      value: selecionados[globalIndex],
-                      onChanged: (v) {
-                        setState(() {
-                          selecionados[globalIndex] = v ?? false;
-                          todosSelecionados = selecionados.every((e) => e);
-                        });
-                      },
-                    )
-                        : null,
-                    title: Text('${u['nome']} - ${u['email']}${u['is_super_admin'] == 1 ? ' (Super Admin)' : (isAdmin ? ' (Admin)' : '')}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Row(
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => editarUsuario(u),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => excluirUsuario(globalIndex),
+                        Expanded(
+                          child: TextField(
+                            controller: buscaController,
+                            decoration: const InputDecoration(
+                              labelText: 'Buscar Usuário',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-          if (usuarios.length > itensPorPagina)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left),
-                        onPressed: paginaAtual > 1
-                            ? () => setState(() => paginaAtual--)
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _criarNovoUsuario,
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Novo Usuário'),
+                          style: AppButtonStyle.primaryButton,
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: importarUsuarios,
+                          icon: const Icon(Icons.upload_file),
+                          label: const Text('Importar'),
+                          style: AppButtonStyle.primaryButton,
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: toggleModoExportacao,
+                          icon: const Icon(Icons.checklist),
+                          label: const Text('Selecionar Usuários'),
+                          style: AppButtonStyle.primaryButton,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: carregando
+                    ? const Center(child: CircularProgressIndicator())
+                    : usuarios.isEmpty
+                    ? const Center(child: Text('Nenhum usuário encontrado'))
+                    : ListView.builder(
+                  itemCount: usuariosPaginados.length,
+                  itemBuilder: (context, index) {
+                    final u = usuariosPaginados[index];
+                    final isSuperAdmin = u['is_super_admin'] == 1;
+                    final isAdmin = u['is_admin'] == 1 || u['is_admin'] == true;
+                    final globalIndex = indiceInicio + index;
+
+                    String status = '';
+                    if (isSuperAdmin) {
+                      status = 'Super Admin';
+                    } else if (isAdmin) {
+                      status = 'Admin';
+                    }
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius
+                          .circular(10)),
+                      child: ListTile(
+                        leading: modoExportacao
+                            ? Checkbox(
+                          value: selecionados[globalIndex],
+                          onChanged: (v) {
+                            setState(() {
+                              selecionados[globalIndex] = v ?? false;
+                              todosSelecionados = selecionados.every((e) => e);
+                            });
+                          },
+                        )
                             : null,
+                        title: Text(
+                          '${u['nome']} - ${u['email']}${status.isNotEmpty
+                              ? ' ($status)'
+                              : ''}',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => editarUsuario(u),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () => excluirUsuario(globalIndex),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text('Página $paginaAtual de $totalPaginas'),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right),
-                        onPressed: paginaAtual < totalPaginas
-                            ? () => setState(() => paginaAtual++)
-                            : null,
+                    );
+                  },
+                ),
+              ),
+              if (usuarios.length > itensPorPagina)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left),
+                            onPressed: paginaAtual > 1
+                                ? () => setState(() => paginaAtual--)
+                                : null,
+                          ),
+                          Text('Página $paginaAtual de $totalPaginas'),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right),
+                            onPressed: paginaAtual < totalPaginas
+                                ? () => setState(() => paginaAtual++)
+                                : null,
+                          ),
+                        ],
+                      ),
+                      Text('Total: ${usuarios.length} registros'),
+                    ],
+                  ),
+                ),
+              if (modoExportacao)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: CheckboxListTile(
+                    title: const Text('Selecionar Todos'),
+                    value: todosSelecionados,
+                    onChanged: toggleSelecionarTodos,
+                  ),
+                ),
+              if (modoExportacao)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: exportarSelecionados,
+                        icon: const Icon(Icons.download),
+                        label: Text('Exportar (${selecionados
+                            .where((e) => e)
+                            .length})'),
+                        style: AppButtonStyle.primaryButton,
+                      ),
+                      if ((ApiService.usuarioLogadoNotifier
+                          .value?['is_admin'] == 1) ||
+                          (ApiService.usuarioLogadoNotifier
+                              .value?['is_super_admin'] == 1))
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (_) =>
+                                  AlertDialog(
+                                    title: const Text('Excluir Usuários'),
+                                    content: const Text(
+                                        'Deseja realmente excluir os usuários selecionados?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text('Excluir'),
+                                      ),
+                                    ],
+                                  ),
+                            );
+
+                            if (confirm == true) {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) =>
+                                const Dialog(
+                                  backgroundColor: Colors.transparent,
+                                  child: Center(
+                                      child: CircularProgressIndicator()),
+                                ),
+                              );
+
+                              final indices = selecionados
+                                  .asMap()
+                                  .entries
+                                  .where((e) => e.value)
+                                  .map((e) => e.key)
+                                  .toList();
+
+                              int excluidos = 0;
+
+                              for (final i in indices) {
+                                final id = usuarios[i]['id'];
+                                try {
+                                  await ApiService.excluirUsuario(id);
+                                  excluidos++;
+                                } catch (_) {}
+                              }
+
+                              await carregarUsuarios();
+                              Navigator.pop(context); // Fecha o loading
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(
+                                    '✅ $excluidos usuário(s) excluído(s).')),
+                              );
+
+                              toggleModoExportacao();
+                            }
+                          },
+                          icon: const Icon(Icons.delete_forever),
+                          label: Text('Excluir (${selecionados
+                              .where((e) => e)
+                              .length})'),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red),
+                        ),
+                      ElevatedButton.icon(
+                        onPressed: toggleModoExportacao,
+                        icon: const Icon(Icons.close),
+                        label: const Text('Cancelar'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange),
                       ),
                     ],
                   ),
-                  Text('Total: ${usuarios.length} registros'),
-                ],
-              ),
-            ),
-          if (modoExportacao)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: CheckboxListTile(
-                title: const Text('Selecionar Todos'),
-                value: todosSelecionados,
-                onChanged: toggleSelecionarTodos,
-              ),
-            ),
-          if (modoExportacao)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: exportarSelecionados,
-                    icon: const Icon(Icons.download),
-                    label: Text('Exportar (${selecionados.where((e) => e).length})'),
-                    style: AppButtonStyle.primaryButton,
-                  ),
-                  if (ApiService.usuarioLogadoNotifier.value?['is_admin'] == 1)
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Excluir Usuários'),
-                            content: const Text('Deseja realmente excluir os usuários selecionados?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('Cancelar'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Excluir'),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (confirm == true) {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (_) => const Dialog(
-                              backgroundColor: Colors.transparent,
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-                          );
-
-                          final indices = selecionados
-                              .asMap()
-                              .entries
-                              .where((e) => e.value)
-                              .map((e) => e.key)
-                              .toList();
-
-                          int excluidos = 0;
-
-                          for (final i in indices) {
-                            final id = usuarios[i]['id'];
-                            try {
-                              await ApiService.excluirUsuario(id);
-                              excluidos++;
-                            } catch (_) {}
-                          }
-
-                          await carregarUsuarios();
-                          Navigator.pop(context); // Fecha o loading
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('✅ $excluidos usuário(s) excluído(s).')),
-                          );
-
-                          toggleModoExportacao();
-                        }
-                      },
-                      icon: const Icon(Icons.delete_forever),
-                      label: Text('Excluir (${selecionados.where((e) => e).length})'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    ),
-                  ElevatedButton.icon(
-                    onPressed: toggleModoExportacao,
-                    icon: const Icon(Icons.close),
-                    label: const Text('Cancelar'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

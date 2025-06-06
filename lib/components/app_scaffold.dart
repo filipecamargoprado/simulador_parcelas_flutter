@@ -20,11 +20,8 @@ class AppScaffold extends StatelessWidget {
     return ValueListenableBuilder<Map<String, dynamic>?>(
       valueListenable: ApiService.usuarioLogadoNotifier,
       builder: (context, usuarioLogado, _) {
-        // ✅ Força atualização do usuário logado do backend
-        Future.microtask(() => ApiService.atualizarDadosUsuarioLogado()); // <-- LINHA NOVA
 
-        final usuario = usuarioLogado ?? {};
-        final isAdmin = usuario['is_admin'] == 1;
+        final isAdmin = ApiService.isAdmin;
         final rotaAtual = ModalRoute.of(context)?.settings.name ?? '';
         final estaEmTelaProtegida = rotaAtual == '/cadastro-produto' || rotaAtual == '/cadastro-usuario';
 

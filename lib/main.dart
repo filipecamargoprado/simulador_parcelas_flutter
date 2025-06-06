@@ -47,6 +47,7 @@ class MyApp extends StatelessWidget {
           child: CadastroUsuarioScreen(
             usuario: ApiService.usuarioLogado!,
             isAdmin: ApiService.isAdmin,
+            isSuperAdmin : ApiService.isSuperAdmin,
           ),
         ),
         '/historico': (_) => const HistoricoScreen(),
