@@ -35,6 +35,28 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
     Future.microtask(_carregarHistorico);
   }
 
+  Future<T> executarComLoading<T>(Future<T> Function() acao) async {
+    bool dialogAberto = false;
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) {
+          dialogAberto = true;
+          return const Dialog(
+            backgroundColor: Colors.transparent,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        },
+      );
+      return await acao();
+    } finally {
+      if (dialogAberto && context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
+  }
+
   Future<void> _carregarHistorico() async {
     try {
       final dados = await ApiService.getHistoricoSimulacoes();
@@ -95,17 +117,19 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
     );
 
     if (confirm == true) {
-      try {
-        await ApiService.excluirSimulacao(id);
-        _carregarHistorico();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Histórico excluído com sucesso.')),
-        );
-      } catch (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Erro ao excluir histórico.')),
-        );
-      }
+      await executarComLoading(() async {
+        try {
+          await ApiService.excluirSimulacao(id);
+          await _carregarHistorico();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ Histórico excluído com sucesso.')),
+          );
+        } catch (_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Erro ao excluir histórico.')),
+          );
+        }
+      });
     }
   }
 
@@ -228,31 +252,33 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                 return;
               }
 
-              try {
-                final id = simulacao['id'];
-                final novosDados = {
-                  'preco_venda_final': precoVenda,
-                  'parcelas': parcelas,
-                  'juros': juros,
-                  'margem': margem,
-                  'entrada': entrada,
-                  'forma_pagamento': formaPagamento,
-                  'tipo_parcelamento': tipoParcelamento,
-                  'cmv_base': simulacao['cmv_base'],
-                  'cmv_total': simulacao['cmv_total'],
-                };
-                await ApiService.atualizarSimulacao(id, novosDados);
-                Navigator.pop(context, true);
-                _carregarHistorico();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✅ Simulação atualizada')),
-                );
-              } catch (_) {
-                Navigator.pop(context, false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('❌ Erro ao atualizar simulação')),
-                );
-              }
+              await executarComLoading(() async {
+                try {
+                  final id = simulacao['id'];
+                  final novosDados = {
+                    'preco_venda_final': precoVenda,
+                    'parcelas': parcelas,
+                    'juros': juros,
+                    'margem': margem,
+                    'entrada': entrada,
+                    'forma_pagamento': formaPagamento,
+                    'tipo_parcelamento': tipoParcelamento,
+                    'cmv_base': simulacao['cmv_base'],
+                    'cmv_total': simulacao['cmv_total'],
+                  };
+                  await ApiService.atualizarSimulacao(id, novosDados);
+                  Navigator.pop(context, true);
+                  await _carregarHistorico();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✅ Simulação atualizada')),
+                  );
+                } catch (_) {
+                  Navigator.pop(context, false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('❌ Erro ao atualizar simulação')),
+                  );
+                }
+              });
             },
             child: const Text('Salvar'),
           ),
@@ -346,35 +372,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
     setState(() => modoExportacao = false);
   }
 
-  void excluirSelecionados() async {
-    final indicesSelecionados = selecionados
-        .asMap()
-        .entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList();
-
-    if (indicesSelecionados.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ Nenhuma simulação selecionada para exclusão')),
-      );
-      return;
-    }
-
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar Exclusão'),
-        content: Text('Tem certeza que deseja excluir ${indicesSelecionados.length} simulações?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir')),
-        ],
-      ),
-    );
-
-    if (confirmar != true) return;
-
+  Future<void> excluirSelecionados() async {
     final indices = selecionados
         .asMap()
         .entries
@@ -382,39 +380,33 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
         .map((e) => e.key)
         .toList();
 
-    int excluidos = 0;
-    for (final i in indices) {
-      final id = filtrado[i]['id'];
-      if (id == null || id is! int) {
-        print('⚠️ ID inválido: $id');
-        continue;
+    await executarComLoading(() async {
+      int excluidos = 0;
+      for (final i in indices) {
+        final id = filtrado[i]['id'];
+        if (id == null || id is! int) {
+          print('⚠️ ID inválido: $id');
+          continue;
+        }
+
+        try {
+          await ApiService.excluirSimulacao(id);
+          excluidos++;
+        } catch (e) {
+          print('❌ Erro ao excluir ID $id: $e');
+        }
       }
 
-      try {
-        await ApiService.excluirSimulacao(id);
-        excluidos++;
-      } catch (e) {
-        print('❌ Erro ao excluir ID $id: $e');
-      }
-    }
+      await _carregarHistorico();
 
-    await _carregarHistorico();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('✅ $excluidos simulação(ões) excluída(s).')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✅ $excluidos simulação(ões) excluída(s).')),
+      );
 
-    setState(() => modoExportacao = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('✅ $excluidos simulação(ões) excluída(s).')),
-    );
-
-    setState(() {
-      modoExportacao = false;
+      setState(() => modoExportacao = false);
     });
-
-    _carregarHistorico(); // Recarrega a lista
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -577,7 +569,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
                     children: [
-                        ElevatedButton.icon(
+                      ElevatedButton.icon(
                           onPressed: () async {
                             final selecionadosIndices = selecionados
                                 .asMap()
@@ -591,7 +583,9 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                               );
                               return;
                             }
-                            await exportarSelecionados();
+                            await executarComLoading(() async {
+                              await exportarSelecionados();
+                            });
                           },
                           icon: const Icon(Icons.download),
                           label: Text('Exportar (${selecionados.where((e) => e).length})'),
@@ -599,47 +593,30 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                         ),
                       const SizedBox(width: 10),
                       if (ApiService.isAdmin) // ✅ Só mostra para admins
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: const Text('Excluir Selecionados'),
-                                  content: const Text('Tem certeza que deseja excluir as simulações selecionadas?'),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir')),
-                                  ],
-                                ),
-                              );
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text('Excluir Selecionados'),
+                                content: const Text('Tem certeza que deseja excluir as simulações selecionadas?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir')),
+                                ],
+                              ),
+                            );
 
-                              if (confirm == true) {
-                                final indices = selecionados
-                                    .asMap()
-                                    .entries
-                                    .where((e) => e.value)
-                                    .map((e) => e.key)
-                                    .toList();
-
-                                for (var i in indices) {
-                                  final id = filtrado[i]['id'];
-                                  try {
-                                    await ApiService.excluirSimulacao(id);
-                                  } catch (_) {}
-                                }
-
-                                await _carregarHistorico();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('✅ ${indices.length} simulações excluídas')),
-                                );
-
-                                setState(() => modoExportacao = false);
-                              }
-                            },
-                            icon: const Icon(Icons.delete_forever),
-                            label: Text('Excluir (${selecionados.where((e) => e).length})'),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                          ),
+                            if (confirm == true) {
+                              await executarComLoading(() async {
+                                await excluirSelecionados();
+                              });
+                            }
+                          },
+                          icon: const Icon(Icons.delete_forever),
+                          label: Text('Excluir (${selecionados.where((e) => e).length})'),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        ),
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () {
