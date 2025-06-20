@@ -9,20 +9,18 @@ class DeciderScreen extends StatelessWidget {
     return ValueListenableBuilder<Map<String, dynamic>?>(
       valueListenable: ApiService.usuarioLogadoNotifier,
       builder: (context, usuario, _) {
-        // Aguarda carregar
-        if (usuario == null && !ApiService.isLogado) {
-          Future.microtask(() {
+        // ✨ LÓGICA DE DIRECIONAMENTO ATUALIZADA
+        Future.microtask(() {
+          if (!ApiService.isLogado) {
             Navigator.pushReplacementNamed(context, '/login');
-          });
-        } else if (ApiService.precisaAlterarSenha) {
-          Future.microtask(() {
+          } else if (ApiService.precisaAlterarSenha) {
             Navigator.pushReplacementNamed(context, '/alterar-senha-obrigatoria');
-          });
-        } else {
-          Future.microtask(() {
+          } else if (ApiService.isLojaOnline) {
+            Navigator.pushReplacementNamed(context, '/simulacao-online');
+          } else {
             Navigator.pushReplacementNamed(context, '/simulacao');
-          });
-        }
+          }
+        });
 
         return const Scaffold(
           body: Center(

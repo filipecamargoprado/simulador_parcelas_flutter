@@ -9,6 +9,7 @@ import 'package:simulador_parcelas_jufap/screens/login_screen.dart';
 import 'package:simulador_parcelas_jufap/screens/perfil_screen.dart';
 import 'package:simulador_parcelas_jufap/screens/simulacao_screen.dart';
 import 'package:simulador_parcelas_jufap/screens/alterar_senha_obrigatoria_screen.dart';
+import 'package:simulador_parcelas_jufap/screens/simulacao_screen_online.dart';
 import 'package:simulador_parcelas_jufap/services/api_service.dart';
 import 'package:simulador_parcelas_jufap/components/protegido_por_admin.dart';
 import 'package:simulador_parcelas_jufap/utils/theme.dart';
@@ -52,6 +53,10 @@ class MyApp extends StatelessWidget {
         ),
         '/historico': (_) => const HistoricoScreen(),
         '/perfil': (_) => PerfilScreen(
+          usuario: ApiService.usuarioLogado!,
+          isAdmin: ApiService.isAdmin,
+        ),
+        '/simulacao-online': (_) => SimulacaoScreenOnline(
           usuario: ApiService.usuarioLogado!,
           isAdmin: ApiService.isAdmin,
         ),

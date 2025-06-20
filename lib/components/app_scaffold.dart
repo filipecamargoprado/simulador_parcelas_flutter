@@ -121,7 +121,10 @@ class AppScaffold extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.calculate),
                   title: const Text('Simulação de Parcelas'),
-                  onTap: () => Navigator.pushReplacementNamed(context, '/simulacao'),
+                  onTap: () {
+                    final rota = ApiService.isLojaOnline ? '/simulacao-online' : '/simulacao';
+                    Navigator.pushReplacementNamed(context, rota);
+                  },
                 ),
                 if (isAdmin)
                   ListTile(

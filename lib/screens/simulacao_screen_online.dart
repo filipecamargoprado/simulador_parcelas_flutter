@@ -1,5 +1,5 @@
-// lib/screens/simulacao_screen.dart
-// ✨ TELA PRINCIPAL - Visão completa de inputs para a LOJA FÍSICA ✨
+// lib/screens/simulacao_screen_online.dart
+// ✨ TELA COMPLETA E DETALHADA PARA A LOJA ONLINE ✨
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,51 +8,35 @@ import '../services/api_service.dart';
 import '../components/app_scaffold.dart';
 import '../utils/theme.dart';
 
-// Classe para organizar os resultados da simulação
-class _SimulacaoResultado {
-  final double cmvTotal;
-  final double entrada;
-  final double parcela10x;
-  final double parcela12x;
-  final double precoSugerido;
-
-  _SimulacaoResultado({
-    required this.cmvTotal,
-    required this.entrada,
-    required this.parcela10x,
-    required this.parcela12x,
-    required this.precoSugerido,
-  });
-}
-
-class SimulacaoScreen extends StatefulWidget {
+class SimulacaoScreenOnline extends StatefulWidget {
   final Map<String, dynamic> usuario;
   final bool isAdmin;
 
-  const SimulacaoScreen({
+  const SimulacaoScreenOnline({
     super.key,
     required this.usuario,
     required this.isAdmin,
   });
 
   @override
-  State<SimulacaoScreen> createState() => _SimulacaoScreenState();
+  State<SimulacaoScreenOnline> createState() => _SimulacaoScreenOnlineState();
 }
 
-class _SimulacaoScreenState extends State<SimulacaoScreen> {
+class _SimulacaoScreenOnlineState extends State<SimulacaoScreenOnline> {
   final margemController = TextEditingController(text: '35');
   final jurosController = TextEditingController(text: '19');
-  final entradaPercentualController = TextEditingController(text: '20');
   final parcelasController = TextEditingController(text: '12');
   final precoVendaController = TextEditingController();
+  final entradaPercentualController = TextEditingController(text: '20');
 
   Map<String, dynamic>? produtoSelecionado;
   List<Map<String, dynamic>> produtos = [];
-  bool carregandoProdutos = true;
+  List<Widget>? resultadoWidget;
+
   String formaPagamento = 'Pix';
   String tipoParcelamento = 'Mensal';
-
-  _SimulacaoResultado? _resultado;
+  bool carregandoProdutos = true;
+  double? precoSugerido;
 
   @override
   void initState() {
@@ -107,6 +91,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     }
 
     final parcelasReal = tipoParcelamento == 'Quinzenal' ? parcelas * 2 : parcelas;
+
     final cmv = double.tryParse(produtoSelecionado!['cmv'].toString()) ?? 0;
     const campanha = 30.0;
     const custoPorBoleto = 3.5;
@@ -116,38 +101,85 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
 
     final custoPorBoletoTotal = custoPorBoleto * parcelasReal;
     final cmvTotal = cmv + campanha + custoSaque + licencaAnual + custoPorBoletoTotal + mensalidade;
-    final precoSugerido = arredondarDezena(cmvTotal / (1 - margem / 100));
+    precoSugerido = arredondarDezena(cmvTotal / (1 - margem / 100));
 
     double precoVenda = double.tryParse(
-        precoVendaController.text.replaceAll('R\$', '').replaceAll('.', '').replaceAll(',', '.')) ?? precoSugerido;
+        precoVendaController.text.replaceAll('R\$', '').replaceAll('.', '').replaceAll(',', '.')) ?? precoSugerido!;
 
-    if (precoVenda < precoSugerido) {
-      precoVenda = precoSugerido;
+    if (precoVenda < precoSugerido!) {
+      precoVenda = precoSugerido!;
       showSnack('⚠️ Preço de venda ajustado para o mínimo sugerido.');
     }
 
     precoVendaController.text = formatarReal(precoVenda);
 
-    final entradaValor = precoVenda * entradaPercentual / 100;
-    final valorDoCredito = precoVenda - entradaValor;
-    final taxaJuros = juros / 100;
+    final entrada = precoVenda * entradaPercentual / 100;
+    final restante = precoVenda - entrada;
+    final i = juros / 100;
 
-    double calcularParcela(int n) {
+    double calcularParcela(double pv, int n) {
       if (n <= 0) return 0;
-      return (valorDoCredito * taxaJuros) / (1 - pow(1 + taxaJuros, -n));
+      return (pv * i) / (1 - pow(1 + i, -n));
     }
 
-    final valorParcela10x = calcularParcela(10);
-    final valorParcela12x = calcularParcela(12);
+    final valorParcela = calcularParcela(restante, parcelasReal);
+    final totalPagar = valorParcela * parcelasReal;
+    final valorJuros = totalPagar - restante;
+    final totalVenda = entrada + totalPagar;
+    final lucro = precoVenda - cmvTotal;
+    final parcelasParaCobrirCusto = (cmvTotal > entrada) ? ((cmvTotal - entrada) / valorParcela).ceil() : 0;
 
     setState(() {
-      _resultado = _SimulacaoResultado(
-        cmvTotal: cmvTotal,
-        entrada: entradaValor,
-        parcela10x: valorParcela10x,
-        parcela12x: valorParcela12x,
-        precoSugerido: precoSugerido,
-      );
+      resultadoWidget = [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('💡 Preço Sugerido: ${formatarReal(precoSugerido!)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: precoVendaController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Preço Venda Final'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(onPressed: simular, style: AppButtonStyle.primaryButton, child: const Text('Atualizar'))
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text('📦 CMV Base: ${formatarReal(cmv)}'),
+              Text('📦 CMV Total: ${formatarReal(cmvTotal)}'),
+              Text('💵 Lucro: ${formatarReal(lucro)}'),
+              Text('📈 Juros (${juros.toStringAsFixed(0)}%): ${formatarReal(valorJuros)}'),
+              Text('📉 Entrada (${entradaPercentual.toStringAsFixed(0)}%): ${formatarReal(entrada)}'),
+              Text('💳 Valor do Crédito: ${formatarReal(restante)}'),
+              Text('🧾 Valor por parcela (${parcelasReal}x): ${formatarReal(valorParcela)}'),
+              Text('🔢 Total a pagar: ${formatarReal(totalPagar)}'),
+              Text('💰 Total da Venda: ${formatarReal(totalVenda)}'),
+              Text('📊 Parcelas p/ Cobrir Custo: $parcelasParaCobrirCusto'),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                  showSnack('Ação de salvar será configurada no próximo passo.');
+                },
+                icon: const Icon(Icons.save),
+                label: const Text('Salvar Simulação'),
+                style: AppButtonStyle.primaryButton,
+              ),
+            ],
+          ),
+        )
+      ];
     });
   }
 
@@ -160,9 +192,8 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Simulação Loja Física', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text('Simulação Loja Online', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(child: TextField(controller: margemController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Margem (%)'))),
@@ -206,48 +237,7 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
             const SizedBox(height: 20),
             ElevatedButton(onPressed: simular, style: AppButtonStyle.primaryButton, child: const Text('Simular')),
             const SizedBox(height: 16),
-
-            if (_resultado != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('💡 Preço Sugerido: ${formatarReal(_resultado!.precoSugerido)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: TextField(controller: precoVendaController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Preço Venda Final'))),
-                        const SizedBox(width: 12),
-                        ElevatedButton(onPressed: simular, style: AppButtonStyle.primaryButton, child: const Text('Atualizar'))
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 10),
-                    Text('📦 CMV Total: ${formatarReal(_resultado!.cmvTotal)}', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 8),
-                    // ✨ AJUSTADO: Adicionada a porcentagem da entrada
-                    Text('📉 Entrada (${entradaPercentualController.text}%): ${formatarReal(_resultado!.entrada)}', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text('💳 Valor por Parcela (10x): ${formatarReal(_resultado!.parcela10x)}', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text('💳 Valor por Parcela (12x): ${formatarReal(_resultado!.parcela12x)}', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        showSnack('Ação de salvar será configurada no próximo passo.');
-                      },
-                      icon: const Icon(Icons.save),
-                      label: const Text('Salvar Simulação'),
-                      // ✨ AJUSTADO: Botão azul
-                      style: AppButtonStyle.primaryButton,
-                    ),
-                  ],
-                ),
-              )
+            if (resultadoWidget != null) ...resultadoWidget!,
           ],
         ),
       ),
