@@ -1,5 +1,5 @@
 // lib/screens/simulacao_screen.dart
-// ✨ TELA PRINCIPAL - Visão completa de inputs para a LOJA FÍSICA ✨
+// ✨ VERSÃO FINAL COM LÓGICA DE SALVAR PARA LOJA FÍSICA ✨
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,13 +8,14 @@ import '../services/api_service.dart';
 import '../components/app_scaffold.dart';
 import '../utils/theme.dart';
 
-// Classe para organizar os resultados da simulação
 class _SimulacaoResultado {
   final double cmvTotal;
   final double entrada;
   final double parcela10x;
   final double parcela12x;
   final double precoSugerido;
+  final double precoVendaFinal;
+  final Map<String, dynamic> dadosCompletosParaSalvar; // Guarda todos os dados para o histórico
 
   _SimulacaoResultado({
     required this.cmvTotal,
@@ -22,6 +23,8 @@ class _SimulacaoResultado {
     required this.parcela10x,
     required this.parcela12x,
     required this.precoSugerido,
+    required this.precoVendaFinal,
+    required this.dadosCompletosParaSalvar,
   });
 }
 
@@ -84,37 +87,42 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     return (valor ~/ 10) * 10.0;
   }
 
-  void showSnack(String mensagem) {
+  void showSnack(String mensagem, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem)),
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+      ),
     );
   }
 
   void simular() {
     if (produtoSelecionado == null) {
-      showSnack('❌ Selecione um produto');
+      showSnack('❌ Selecione um produto', isError: true);
       return;
     }
 
     final margem = double.tryParse(margemController.text) ?? 0;
     final juros = double.tryParse(jurosController.text) ?? 0;
     final entradaPercentual = double.tryParse(entradaPercentualController.text) ?? 0;
-    var parcelas = int.tryParse(parcelasController.text) ?? 0;
 
-    if (margem < 35 || juros < 19 || entradaPercentual < 20 || parcelas > 12) {
-      showSnack('❌ Verifique os valores de margem, juros, entrada e parcelas.');
+    // Este controlador de parcelas não é mais usado para o cálculo principal, mas pode ser usado para o de custo
+    var parcelasInput = int.tryParse(parcelasController.text) ?? 12;
+
+    if (margem < 35 || juros < 19 || entradaPercentual < 20) {
+      showSnack('❌ Verifique os valores de margem, juros e entrada.', isError: true);
       return;
     }
 
-    final parcelasReal = tipoParcelamento == 'Quinzenal' ? parcelas * 2 : parcelas;
+    final parcelasReaisCusto = tipoParcelamento == 'Quinzenal' ? parcelasInput * 2 : parcelasInput;
     final cmv = double.tryParse(produtoSelecionado!['cmv'].toString()) ?? 0;
     const campanha = 30.0;
     const custoPorBoleto = 3.5;
     const custoSaque = 3.99;
     const mensalidade = 20.0;
-    double licencaAnual = (parcelasReal <= 12) ? 59.9 : 118.8;
+    double licencaAnual = (parcelasReaisCusto <= 12) ? 59.9 : 118.8;
 
-    final custoPorBoletoTotal = custoPorBoleto * parcelasReal;
+    final custoPorBoletoTotal = custoPorBoleto * parcelasReaisCusto;
     final cmvTotal = cmv + campanha + custoSaque + licencaAnual + custoPorBoletoTotal + mensalidade;
     final precoSugerido = arredondarDezena(cmvTotal / (1 - margem / 100));
 
@@ -140,6 +148,31 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
     final valorParcela10x = calcularParcela(10);
     final valorParcela12x = calcularParcela(12);
 
+    // ✨ CÁLCULO DOS DADOS COMPLETOS PARA SALVAR (BASEADO EM 12X)
+    final valorParcelaSalvar = valorParcela12x;
+    final totalPagarSalvar = valorParcelaSalvar * 12;
+    final totalVendaSalvar = entradaValor + totalPagarSalvar;
+    final lucroSalvar = precoVenda - cmvTotal;
+    final parcelasCobrirCustoSalvar = (cmvTotal > entradaValor) ? ((cmvTotal - entradaValor) / valorParcelaSalvar).ceil() : 0;
+
+    final dadosParaSalvar = {
+      'produto': '${produtoSelecionado!['marca']} - ${produtoSelecionado!['modelo']}',
+      'preco_venda_final': precoVenda,
+      'parcelas': 12, // Fixo em 12 para o histórico
+      'juros': juros,
+      'entrada': entradaPercentual,
+      'margem': margem,
+      'lucro': lucroSalvar,
+      'cmv_base': cmv,
+      'cmv_total': cmvTotal,
+      'tipo_parcelamento': tipoParcelamento,
+      'forma_pagamento': formaPagamento,
+      'parcelas_cobrir_custo': parcelasCobrirCustoSalvar,
+      'total_pagar': totalPagarSalvar,
+      'total_venda': totalVendaSalvar,
+      'salvo_por': widget.usuario['nome'] ?? 'Desconhecido',
+    };
+
     setState(() {
       _resultado = _SimulacaoResultado(
         cmvTotal: cmvTotal,
@@ -147,8 +180,24 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
         parcela10x: valorParcela10x,
         parcela12x: valorParcela12x,
         precoSugerido: precoSugerido,
+        precoVendaFinal: precoVenda,
+        dadosCompletosParaSalvar: dadosParaSalvar,
       );
     });
+  }
+
+  // ✨ LÓGICA PARA SALVAR A SIMULAÇÃO FÍSICA ✨
+  Future<void> _salvarSimulacaoFisica() async {
+    if (_resultado == null) {
+      showSnack("Por favor, gere uma simulação antes de salvar.", isError: true);
+      return;
+    }
+    try {
+      await ApiService.salvarSimulacao(_resultado!.dadosCompletosParaSalvar);
+      showSnack("✅ Simulação (12x) salva com sucesso no histórico!");
+    } catch (e) {
+      showSnack("❌ Erro ao salvar simulação: ${e.toString()}", isError: true);
+    }
   }
 
   @override
@@ -177,32 +226,13 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: formaPagamento,
-                    decoration: const InputDecoration(labelText: 'Forma de Pagamento da Entrada'),
-                    items: const [DropdownMenuItem(value: 'Pix', child: Text('Pix')), DropdownMenuItem(value: 'Dinheiro', child: Text('Dinheiro'))],
-                    onChanged: (value) => setState(() => formaPagamento = value!),
-                  ),
-                ),
+                Expanded(child: DropdownButtonFormField<String>(value: formaPagamento, decoration: const InputDecoration(labelText: 'Forma de Pagamento da Entrada'), items: const [DropdownMenuItem(value: 'Pix', child: Text('Pix')), DropdownMenuItem(value: 'Dinheiro', child: Text('Dinheiro'))], onChanged: (value) => setState(() => formaPagamento = value!))),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: tipoParcelamento,
-                    decoration: const InputDecoration(labelText: 'Tipo de Parcelamento'),
-                    items: const [DropdownMenuItem(value: 'Mensal', child: Text('Mensal')), DropdownMenuItem(value: 'Quinzenal', child: Text('Quinzenal'))],
-                    onChanged: (value) => setState(() => tipoParcelamento = value!),
-                  ),
-                ),
+                Expanded(child: DropdownButtonFormField<String>(value: tipoParcelamento, decoration: const InputDecoration(labelText: 'Tipo de Parcelamento'), items: const [DropdownMenuItem(value: 'Mensal', child: Text('Mensal')), DropdownMenuItem(value: 'Quinzenal', child: Text('Quinzenal'))], onChanged: (value) => setState(() => tipoParcelamento = value!))),
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<Map<String, dynamic>>(
-              value: produtoSelecionado,
-              decoration: const InputDecoration(labelText: 'Selecione o Produto'),
-              items: produtos.map((produto) => DropdownMenuItem<Map<String, dynamic>>(value: produto, child: Text('${produto['marca']} - ${produto['modelo']}'))).toList(),
-              onChanged: (value) => setState(() => produtoSelecionado = value),
-            ),
+            DropdownButtonFormField<Map<String, dynamic>>(value: produtoSelecionado, decoration: const InputDecoration(labelText: 'Selecione o Produto'), items: produtos.map((produto) => DropdownMenuItem<Map<String, dynamic>>(value: produto, child: Text('${produto['marca']} - ${produto['modelo']}'))).toList(), onChanged: (value) => setState(() => produtoSelecionado = value)),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: simular, style: AppButtonStyle.primaryButton, child: const Text('Simular')),
             const SizedBox(height: 16),
@@ -229,7 +259,6 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                     const SizedBox(height: 10),
                     Text('📦 CMV Total: ${formatarReal(_resultado!.cmvTotal)}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 8),
-                    // ✨ AJUSTADO: Adicionada a porcentagem da entrada
                     Text('📉 Entrada (${entradaPercentualController.text}%): ${formatarReal(_resultado!.entrada)}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 8),
                     Text('💳 Valor por Parcela (10x): ${formatarReal(_resultado!.parcela10x)}', style: const TextStyle(fontSize: 16)),
@@ -237,12 +266,9 @@ class _SimulacaoScreenState extends State<SimulacaoScreen> {
                     Text('💳 Valor por Parcela (12x): ${formatarReal(_resultado!.parcela12x)}', style: const TextStyle(fontSize: 16)),
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        showSnack('Ação de salvar será configurada no próximo passo.');
-                      },
+                      onPressed: _salvarSimulacaoFisica, // ✨ AÇÃO DE SALVAR IMPLEMENTADA
                       icon: const Icon(Icons.save),
                       label: const Text('Salvar Simulação'),
-                      // ✨ AJUSTADO: Botão azul
                       style: AppButtonStyle.primaryButton,
                     ),
                   ],
