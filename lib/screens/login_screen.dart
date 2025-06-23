@@ -1,3 +1,4 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/theme.dart';
@@ -29,28 +30,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final sucesso = await ApiService.login(email, senha);
-      if (sucesso) {
-        if (ApiService.precisaAlterarSenha) {
-          Navigator.pushReplacementNamed(context, '/alterar-senha-obrigatoria');
-        } else {
-          Navigator.pushReplacementNamed(context, '/simulacao');
-        }
+
+      // Garante que o widget ainda está montado antes de navegar
+      if (sucesso && mounted) {
+        // Redireciona para o Decider, que centraliza a lógica de qual tela mostrar
+        Navigator.pushReplacementNamed(context, '/');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ E-mail ou senha inválidos')),
-        );
+        if(mounted){
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ E-mail ou senha inválidos')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Erro ao conectar: $e')),
-      );
+      if(mounted){
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Erro ao conectar: $e')),
+        );
+      }
     } finally {
-      setState(() => carregando = false);
+      if (mounted) {
+        setState(() => carregando = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // ... (O resto do seu método build continua igual)
     return Scaffold(
       backgroundColor: const Color(0xFFE6F0F8),
       body: Center(

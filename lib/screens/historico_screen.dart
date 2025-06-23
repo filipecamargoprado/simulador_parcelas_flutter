@@ -1,6 +1,3 @@
-// lib/screens/historico_screen.dart
-// ✨ VERSÃO FINAL, COMPLETA E 100% FUNCIONAL ✨
-
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
@@ -102,56 +99,117 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
   void editar(Map<String, dynamic> simulacao) async {
     bool isRegistroFisico = simulacao['valor_parcela_10x'] != null;
 
+    final cmvTotal = double.tryParse(simulacao['cmv_total'].toString()) ?? 0.0;
+
     final precoController = TextEditingController(text: simulacao['preco_venda_final'].toString());
     final parcelasController = TextEditingController(text: simulacao['parcelas'].toString());
     final jurosController = TextEditingController(text: simulacao['juros'].toString());
     final entradaController = TextEditingController(text: simulacao['entrada'].toString());
+    final margemController = TextEditingController(text: simulacao['margem'].toString());
 
-    await showDialog<bool>(
+    String tipoParcelamento = simulacao['tipo_parcelamento'] ?? 'Mensal';
+    String formaPagamento = simulacao['forma_pagamento'] ?? 'Pix';
+
+    // Variável para controlar a mensagem de erro dentro do dialog
+    String? errorMessage;
+
+    await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Editar Simulação ${isRegistroFisico ? "Física" : "Online"}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: precoController, decoration: const InputDecoration(labelText: 'Preço Venda Final'), keyboardType: TextInputType.number),
-              if (!isRegistroFisico) ...[
-                TextField(controller: parcelasController, decoration: const InputDecoration(labelText: 'Parcelas'), keyboardType: TextInputType.number),
-                TextField(controller: jurosController, decoration: const InputDecoration(labelText: 'Juros (%)'), keyboardType: TextInputType.number),
-                TextField(controller: entradaController, decoration: const InputDecoration(labelText: 'Entrada (%)'), keyboardType: TextInputType.number),
-              ]
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () async {
-              final novosDados = {
-                'preco_venda_final': double.tryParse(precoController.text) ?? simulacao['preco_venda_final'],
-                'parcelas': int.tryParse(parcelasController.text) ?? simulacao['parcelas'],
-                'juros': double.tryParse(jurosController.text) ?? simulacao['juros'],
-                'entrada': double.tryParse(entradaController.text) ?? simulacao['entrada'],
-                'cmv_total': simulacao['cmv_total'],
-                'tipo_parcelamento': simulacao['tipo_parcelamento'],
-                'forma_pagamento': simulacao['forma_pagamento'],
-              };
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+            builder: (context, setStateInDialog) {
+              return AlertDialog(
+                title: Text('Editar Simulação ${isRegistroFisico ? "Física" : "Online"}'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // ✨ EXIBIÇÃO DA MENSAGEM DE ERRO DENTRO DO DIALOG ✨
+                      if (errorMessage != null) ...[
+                        Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 10),
+                      ],
+                      TextField(controller: precoController, decoration: const InputDecoration(labelText: 'Preço Venda Final'), keyboardType: TextInputType.number),
+                      if (!isRegistroFisico) ...[
+                        TextField(controller: margemController, decoration: const InputDecoration(labelText: 'Margem (%)'), keyboardType: TextInputType.number),
+                        TextField(controller: parcelasController, decoration: const InputDecoration(labelText: 'Parcelas'), keyboardType: TextInputType.number),
+                        TextField(controller: jurosController, decoration: const InputDecoration(labelText: 'Juros (%)'), keyboardType: TextInputType.number),
+                        TextField(controller: entradaController, decoration: const InputDecoration(labelText: 'Entrada (%)'), keyboardType: TextInputType.number),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          value: formaPagamento,
+                          decoration: const InputDecoration(labelText: 'Forma de Pagamento da Entrada'),
+                          items: ['Pix', 'Dinheiro'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                          onChanged: (v) => setStateInDialog(() => formaPagamento = v!),
+                        ),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
+                          value: tipoParcelamento,
+                          decoration: const InputDecoration(labelText: 'Tipo de Parcelamento'),
+                          items: ['Mensal', 'Quinzenal'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                          onChanged: (v) => setStateInDialog(() => tipoParcelamento = v!),
+                        ),
+                      ]
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+                  TextButton(
+                    onPressed: () async {
+                      final precoVenda = double.tryParse(precoController.text) ?? 0.0;
+                      final margem = double.tryParse(margemController.text) ?? 0.0;
 
-              try {
-                await executarComLoading(() async {
-                  await ApiService.atualizarSimulacao(simulacao['id'], novosDados);
-                  await _carregarHistorico();
-                });
-                if(mounted) Navigator.pop(context, true);
-              } catch(e) {
-                if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erro ao atualizar: $e')));
-              }
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
+                      final precoSugerido = (cmvTotal / (1 - (35 / 100))).floorToDouble();
+
+                      // ✨ LÓGICA DE VALIDAÇÃO AJUSTADA PARA ATUALIZAR O ESTADO DO DIALOG ✨
+                      if (precoVenda < precoSugerido) {
+                        setStateInDialog(() => errorMessage = 'Preço final deve ser ≥ ${formatarReal(precoSugerido)}');
+                        return;
+                      }
+                      if (!isRegistroFisico) {
+                        final parcelas = int.tryParse(parcelasController.text) ?? 0;
+                        final juros = double.tryParse(jurosController.text) ?? 0.0;
+                        final entrada = double.tryParse(entradaController.text) ?? 0.0;
+
+                        if (margem < 35) { setStateInDialog(() => errorMessage = 'Margem deve ser no mínimo 35%'); return; }
+                        if (juros < 19) { setStateInDialog(() => errorMessage = 'Juros deve ser no mínimo 19%'); return; }
+                        if (entrada < 20) { setStateInDialog(() => errorMessage = 'Entrada deve ser no mínimo 20%'); return; }
+                        if (parcelas > 12 || parcelas <= 0) { setStateInDialog(() => errorMessage = 'Parcelas deve ser entre 1 e 12'); return; }
+                      }
+
+                      // Se passar por todas as validações, limpa a mensagem de erro
+                      setStateInDialog(() => errorMessage = null);
+
+                      final novosDados = {
+                        'preco_venda_final': precoVenda,
+                        'parcelas': int.tryParse(parcelasController.text) ?? simulacao['parcelas'],
+                        'juros': double.tryParse(jurosController.text) ?? simulacao['juros'],
+                        'entrada': double.tryParse(entradaController.text) ?? simulacao['entrada'],
+                        'margem': margem,
+                        'tipo_parcelamento': tipoParcelamento,
+                        'forma_pagamento': formaPagamento,
+                      };
+
+                      Navigator.pop(context);
+                      await executarComLoading(() async {
+                        try {
+                          await ApiService.atualizarSimulacao(simulacao['id'], novosDados);
+                          await _carregarHistorico();
+                          if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Simulação atualizada com sucesso!'), backgroundColor: Colors.green));
+                        } catch(e) {
+                          if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erro ao atualizar: $e'), backgroundColor: Colors.red));
+                        }
+                      });
+                    },
+                    child: const Text('Salvar'),
+                  ),
+                ],
+              );
+            }
+        );
+      },
     );
   }
 
@@ -181,11 +239,11 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
     }
   }
 
-  // ✨ MÉTODO EXPORTAR SELECIONADOS IMPLEMENTADO CORRETAMENTE ✨
+  // ✨ MÉTODO EXPORTAR SELECIONADOS IMPLEMENTADO ✨
   Future<void> exportarSelecionados() async {
     final itensSelecionados = <Map<String, dynamic>>[];
     for (int i = 0; i < filtrado.length; i++) {
-      if (selecionados[i]) {
+      if (selecionados.length > i && selecionados[i]) {
         itensSelecionados.add(filtrado[i]);
       }
     }
@@ -221,12 +279,10 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
         ];
 
         if (temFisico) {
-          // CORREÇÃO: Removido o 'const'
           row.add(isRegistroFisico ? TextCellValue(formatarReal(s['valor_parcela_10x'])) : TextCellValue(''));
           row.add(isRegistroFisico ? TextCellValue(formatarReal(s['valor_parcela_12x'])) : TextCellValue(''));
         }
         if (temOnline) {
-          // CORREÇÃO: Removido o 'const'
           row.add(!isRegistroFisico ? TextCellValue(formatarReal(s['lucro'])) : TextCellValue(''));
           row.add(!isRegistroFisico ? TextCellValue(formatarReal(s['total_venda'])) : TextCellValue(''));
           row.add(!isRegistroFisico ? TextCellValue(s['parcelas']?.toString() ?? '') : TextCellValue(''));
@@ -249,7 +305,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
   Future<void> excluirSelecionados() async {
     final idsParaExcluir = <int>[];
     for (int i = 0; i < filtrado.length; i++) {
-      if (selecionados[i]) {
+      if (selecionados.length > i && selecionados[i]) {
         idsParaExcluir.add(filtrado[i]['id'] as int);
       }
     }
@@ -287,6 +343,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // O método build permanece o mesmo da resposta anterior, pois sua estrutura já está correta.
     return AppScaffold(
       title: 'Histórico de Simulações',
       child: Column(
@@ -352,8 +409,8 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(icon: const Icon(Icons.edit, color: AppColors.primary), onPressed: () => editar(s)),
-                                    IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => excluir(s['id'])),
+                                    IconButton(icon: const Icon(Icons.edit), onPressed: () => editar(s)),
+                                    IconButton(icon: const Icon(Icons.delete), onPressed: () => excluir(s['id'])),
                                   ],
                                 ),
                             ],
@@ -369,9 +426,16 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                             Text('💳 Valor por Parcela (12x): ${formatarReal(s['valor_parcela_12x'])}'),
                           ] else ...[
                             Text('💰 Preço Final: ${formatarReal(s['preco_venda_final'])}'),
+                            Text('📦 CMV Base: ${formatarReal(s['cmv_base'])}'),
+                            Text('📦 CMV Total: ${formatarReal(s['cmv_total'])}'),
                             Text('💵 Lucro: ${formatarReal(s['lucro'])}'),
                             Text('📈 Juros (${s['juros']}%): ${formatarReal(s['total_venda'] - precoVendaFinal)}'),
+                            Text('📉 Entrada (${entradaPercent.toStringAsFixed(0)}%): ${formatarReal(precoVendaFinal * (entradaPercent / 100))}'),
+                            Text('💳 Valor do Crédito: ${formatarReal(precoVendaFinal * (1 - (entradaPercent / 100)))}'),
                             Text('🧾 Valor por parcela (${s['parcelas']}x): ${formatarReal((double.tryParse(s['total_pagar'].toString()) ?? 0.0) / (int.tryParse(s['parcelas'].toString()) ?? 1))}'),
+                            Text('📆 Parcelamento: ${s['parcelas']}x ${s['tipo_parcelamento']}'),
+                            Text('🏦 Forma de Pagamento da Entrada: ${s['forma_pagamento']}'),
+                            Text('🔢 Total a pagar: ${formatarReal(s['total_pagar'])}'),
                             Text('💰 Total da Venda: ${formatarReal(s['total_venda'])}'),
                             Text('📊 Parcelas p/ Cobrir Custo: ${s['parcelas_cobrir_custo']}'),
                           ],
