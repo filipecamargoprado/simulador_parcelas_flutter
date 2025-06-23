@@ -393,8 +393,8 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     bool senhaInvalida = false;
 
     bool isAdmin = usuario['is_admin'] == 1 || usuario['is_admin'] == true;
-    bool isSuperAdmin = usuario['is_super_admin'] == 1 ||
-        usuario['is_super_admin'] == true;
+    bool isSuperAdmin = usuario['is_super_admin'] == 1 || usuario['is_super_admin'] == true;
+    bool isLojaOnline = usuario['loja_online'] == 1 || usuario['loja_online'] == true;
 
     Future<void> salvar() async {
       final nome = nomeController.text.trim();
@@ -543,6 +543,12 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                                   isSuperAdmin = v ?? false;
                                 }),
                           ),
+                        if (ApiService.isSuperAdmin)
+                          CheckboxListTile(
+                            title: const Text('Loja Online'),
+                            value: isLojaOnline,
+                            onChanged: (v) => setState(() { isLojaOnline = v ?? false; }),
+                          ),
                       ],
                     ),
                   ),
@@ -617,6 +623,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
     final senhaController = TextEditingController();
     bool isAdmin = false;
     bool isSuperAdmin = false;
+    bool isLojaOnline = false;
 
     bool nomeInvalido = false;
     bool emailInvalido = false;
@@ -650,6 +657,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
             'senha': senha,
             'is_admin': isAdmin ? 1 : 0,
             'is_super_admin': isSuperAdmin ? 1 : 0,
+            'loja_online': isLojaOnline ? 1 : 0,
           });
           await carregarUsuarios();
         });
@@ -747,6 +755,12 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                                 setState(() {
                                   isSuperAdmin = v ?? false;
                                 }),
+                          ),
+                        if (ApiService.isSuperAdmin)
+                          CheckboxListTile(
+                            title: const Text('Loja Online'),
+                            value: isLojaOnline,
+                            onChanged: (v) => setState(() { isLojaOnline = v ?? false; }),
                           ),
                       ],
                     ),
@@ -858,14 +872,18 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                     final u = usuariosPaginados[index];
                     final isSuperAdmin = u['is_super_admin'] == 1;
                     final isAdmin = u['is_admin'] == 1 || u['is_admin'] == true;
+                    final isLojaOnline = u['loja_online'] == 1 || u['loja_online'] == true;
                     final globalIndex = indiceInicio + index;
 
-                    String status = '';
-                    if (isSuperAdmin) {
-                      status = 'Super Admin';
-                    } else if (isAdmin) {
-                      status = 'Admin';
-                    }
+
+                    List<String> statusParts = [];
+                    if (isSuperAdmin) statusParts.add('Super Admin');
+                    else if (isAdmin) statusParts.add('Admin');
+
+                    if (isLojaOnline) statusParts.add('Loja Online');
+                    else statusParts.add('Loja Física');
+
+                    String status = statusParts.isNotEmpty ? ' (${statusParts.join(', ')})' : '';
 
                     return Card(
                       margin: const EdgeInsets.symmetric(
@@ -885,9 +903,7 @@ class _CadastroUsuarioScreenState extends State<CadastroUsuarioScreen> {
                         )
                             : null,
                         title: Text(
-                          '${u['nome']} - ${u['email']}${status.isNotEmpty
-                              ? ' ($status)'
-                              : ''}',
+                          '${u['nome']} - ${u['email']}$status',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
