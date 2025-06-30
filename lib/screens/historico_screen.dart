@@ -1,3 +1,6 @@
+// lib/screens/historico_screen.dart
+// ✨ VERSÃO DEFINITIVA, COMPLETA E CORRIGIDA ✨
+
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
@@ -109,9 +112,9 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
 
     String tipoParcelamento = simulacao['tipo_parcelamento'] ?? 'Mensal';
     String formaPagamento = simulacao['forma_pagamento'] ?? 'Pix';
-
-    // Variável para controlar a mensagem de erro dentro do dialog
     String? errorMessage;
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     await showDialog<void>(
       context: context,
@@ -125,12 +128,15 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // ✨ EXIBIÇÃO DA MENSAGEM DE ERRO DENTRO DO DIALOG ✨
                       if (errorMessage != null) ...[
                         Text(errorMessage!, style: const TextStyle(color: Colors.red)),
                         const SizedBox(height: 10),
                       ],
                       TextField(controller: precoController, decoration: const InputDecoration(labelText: 'Preço Venda Final'), keyboardType: TextInputType.number),
+
+                      if (isRegistroFisico)
+                        TextField(controller: entradaController, decoration: const InputDecoration(labelText: 'Entrada (%)'), keyboardType: TextInputType.number),
+
                       if (!isRegistroFisico) ...[
                         TextField(controller: margemController, decoration: const InputDecoration(labelText: 'Margem (%)'), keyboardType: TextInputType.number),
                         TextField(controller: parcelasController, decoration: const InputDecoration(labelText: 'Parcelas'), keyboardType: TextInputType.number),
@@ -159,34 +165,34 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                   TextButton(
                     onPressed: () async {
                       final precoVenda = double.tryParse(precoController.text) ?? 0.0;
+                      final entrada = double.tryParse(entradaController.text) ?? 0.0;
                       final margem = double.tryParse(margemController.text) ?? 0.0;
 
                       final precoSugerido = (cmvTotal / (1 - (35 / 100))).floorToDouble();
-
-                      // ✨ LÓGICA DE VALIDAÇÃO AJUSTADA PARA ATUALIZAR O ESTADO DO DIALOG ✨
                       if (precoVenda < precoSugerido) {
                         setStateInDialog(() => errorMessage = 'Preço final deve ser ≥ ${formatarReal(precoSugerido)}');
                         return;
                       }
+                      if (entrada < 20) {
+                        setStateInDialog(() => errorMessage = 'Entrada deve ser no mínimo 20%');
+                        return;
+                      }
+
                       if (!isRegistroFisico) {
                         final parcelas = int.tryParse(parcelasController.text) ?? 0;
                         final juros = double.tryParse(jurosController.text) ?? 0.0;
-                        final entrada = double.tryParse(entradaController.text) ?? 0.0;
-
                         if (margem < 35) { setStateInDialog(() => errorMessage = 'Margem deve ser no mínimo 35%'); return; }
                         if (juros < 19) { setStateInDialog(() => errorMessage = 'Juros deve ser no mínimo 19%'); return; }
-                        if (entrada < 20) { setStateInDialog(() => errorMessage = 'Entrada deve ser no mínimo 20%'); return; }
                         if (parcelas > 12 || parcelas <= 0) { setStateInDialog(() => errorMessage = 'Parcelas deve ser entre 1 e 12'); return; }
                       }
 
-                      // Se passar por todas as validações, limpa a mensagem de erro
                       setStateInDialog(() => errorMessage = null);
 
                       final novosDados = {
                         'preco_venda_final': precoVenda,
                         'parcelas': int.tryParse(parcelasController.text) ?? simulacao['parcelas'],
                         'juros': double.tryParse(jurosController.text) ?? simulacao['juros'],
-                        'entrada': double.tryParse(entradaController.text) ?? simulacao['entrada'],
+                        'entrada': entrada,
                         'margem': margem,
                         'tipo_parcelamento': tipoParcelamento,
                         'forma_pagamento': formaPagamento,
@@ -195,11 +201,11 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                       Navigator.pop(context);
                       await executarComLoading(() async {
                         try {
-                          await ApiService.atualizarSimulacao(simulacao['id'], novosDados);
+                          await ApiService.atualizarSimulacao(simulacao['id'], novosDados).timeout(const Duration(seconds: 15));
                           await _carregarHistorico();
-                          if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Simulação atualizada com sucesso!'), backgroundColor: Colors.green));
+                          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('✅ Simulação atualizada com sucesso!'), backgroundColor: Colors.green));
                         } catch(e) {
-                          if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Erro ao atualizar: $e'), backgroundColor: Colors.red));
+                          scaffoldMessenger.showSnackBar(SnackBar(content: Text('❌ Erro ao atualizar: $e'), backgroundColor: Colors.red));
                         }
                       });
                     },
@@ -213,7 +219,9 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
     );
   }
 
+  // ✨ MÉTODO EXCLUIR RESTAURADO E COMPLETO ✨
   void excluir(int id) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -231,15 +239,15 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
         try {
           await ApiService.excluirSimulacao(id);
           await _carregarHistorico();
-          if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Histórico excluído com sucesso.')));
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('✅ Histórico excluído com sucesso.')));
         } catch (_) {
-          if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Erro ao excluir histórico.')));
+          scaffoldMessenger.showSnackBar(const SnackBar(content: Text('❌ Erro ao excluir histórico.')));
         }
       });
     }
   }
 
-  // ✨ MÉTODO EXPORTAR SELECIONADOS IMPLEMENTADO ✨
+  // ✨ MÉTODO EXPORTAR SELECIONADOS RESTAURADO E COMPLETO ✨
   Future<void> exportarSelecionados() async {
     final itensSelecionados = <Map<String, dynamic>>[];
     for (int i = 0; i < filtrado.length; i++) {
@@ -301,7 +309,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
     });
   }
 
-  // ✨ MÉTODO EXCLUIR SELECIONADOS IMPLEMENTADO ✨
+  // ✨ MÉTODO EXCLUIR SELECIONADOS RESTAURADO E COMPLETO ✨
   Future<void> excluirSelecionados() async {
     final idsParaExcluir = <int>[];
     for (int i = 0; i < filtrado.length; i++) {
@@ -343,7 +351,6 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // O método build permanece o mesmo da resposta anterior, pois sua estrutura já está correta.
     return AppScaffold(
       title: 'Histórico de Simulações',
       child: Column(
@@ -382,6 +389,8 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
 
                   final precoVendaFinal = double.tryParse(s['preco_venda_final'].toString()) ?? 0.0;
                   final entradaPercent = double.tryParse(s['entrada'].toString()) ?? 0.0;
+                  final totalPagar = double.tryParse(s['total_pagar'].toString()) ?? 0.0;
+                  final parcelas = int.tryParse(s['parcelas'].toString()) ?? 1;
 
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -409,7 +418,7 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(icon: const Icon(Icons.edit), onPressed: () => editar(s)),
+                                    IconButton(icon: const Icon(Icons.edit, color: Colors.black), onPressed: () => editar(s)),
                                     IconButton(icon: const Icon(Icons.delete), onPressed: () => excluir(s['id'])),
                                   ],
                                 ),
@@ -432,10 +441,10 @@ class _HistoricoScreenState extends State<HistoricoScreen> {
                             Text('📈 Juros (${s['juros']}%): ${formatarReal(s['total_venda'] - precoVendaFinal)}'),
                             Text('📉 Entrada (${entradaPercent.toStringAsFixed(0)}%): ${formatarReal(precoVendaFinal * (entradaPercent / 100))}'),
                             Text('💳 Valor do Crédito: ${formatarReal(precoVendaFinal * (1 - (entradaPercent / 100)))}'),
-                            Text('🧾 Valor por parcela (${s['parcelas']}x): ${formatarReal((double.tryParse(s['total_pagar'].toString()) ?? 0.0) / (int.tryParse(s['parcelas'].toString()) ?? 1))}'),
+                            Text('🧾 Valor por parcela (${s['parcelas']}x): ${formatarReal(totalPagar / parcelas)}'),
                             Text('📆 Parcelamento: ${s['parcelas']}x ${s['tipo_parcelamento']}'),
                             Text('🏦 Forma de Pagamento da Entrada: ${s['forma_pagamento']}'),
-                            Text('🔢 Total a pagar: ${formatarReal(s['total_pagar'])}'),
+                            Text('🔢 Total a pagar: ${formatarReal(totalPagar)}'),
                             Text('💰 Total da Venda: ${formatarReal(s['total_venda'])}'),
                             Text('📊 Parcelas p/ Cobrir Custo: ${s['parcelas_cobrir_custo']}'),
                           ],
